@@ -4,13 +4,18 @@ interface Window {
   bindVariable: () => void;
   filterVariables: (searchTerm: string) => void;
   selectVariable: (variableId: string) => void;
+  loadExternalVariables: () => void;
+  switchTab: (tab: string) => void;
 }
 
 // Global variables
 let allVariables: any[] = [];
+let localVariables: any[] = [];
+let externalVariables: any[] = [];
 let selectedVariableId: string | null = null;
 let selectedTextNodeId: string | null = null; // kept for display only, not required for apply
 let currentBoundVariableId: string | null = null;
+let currentTab: string = 'local';
 
 // Bind variable to selected text node
 window.bindVariable = () => {
@@ -27,15 +32,92 @@ window.bindVariable = () => {
   }, '*');
 };
 
+// Load external variables
+window.loadExternalVariables = () => {
+  const fileKeyInput = document.getElementById('file-key-input') as HTMLInputElement;
+  const fileKey = fileKeyInput.value.trim();
+  
+  if (!fileKey) {
+    showExternalStatus('Please enter a Figma file key', 'error');
+    return;
+  }
+  
+  showExternalStatus('Loading external variables...', 'loading');
+  
+  parent.postMessage({
+    pluginMessage: {
+      type: 'load-external-variables',
+      fileKey: fileKey
+    }
+  }, '*');
+};
+
+// Switch between variable tabs
+window.switchTab = (tab: string) => {
+  currentTab = tab;
+  
+  // Update tab buttons
+  document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.querySelector(`[onclick="switchTab('${tab}')"]`)?.classList.add('active');
+  
+  // Filter and display variables
+  let variablesToShow: any[] = [];
+  switch (tab) {
+    case 'local':
+      variablesToShow = localVariables;
+      break;
+    case 'external':
+      variablesToShow = externalVariables;
+      break;
+    case 'all':
+      variablesToShow = allVariables;
+      break;
+  }
+  
+  displayVariables(variablesToShow, currentBoundVariableId || undefined);
+};
+
+// Show external status message
+function showExternalStatus(message: string, type: 'success' | 'error' | 'loading') {
+  const statusEl = document.getElementById('external-status');
+  if (!statusEl) return;
+  
+  statusEl.textContent = message;
+  statusEl.className = `external-status ${type}`;
+  statusEl.classList.remove('hidden');
+  
+  if (type === 'success') {
+    setTimeout(() => {
+      statusEl.classList.add('hidden');
+    }, 3000);
+  }
+}
+
 // Filter variables based on search term
 window.filterVariables = (searchTerm: string) => {
   const query = (searchTerm || '').trim().toLowerCase();
+  
+  let variablesToFilter: any[] = [];
+  switch (currentTab) {
+    case 'local':
+      variablesToFilter = localVariables;
+      break;
+    case 'external':
+      variablesToFilter = externalVariables;
+      break;
+    case 'all':
+      variablesToFilter = allVariables;
+      break;
+  }
+  
   if (query.length === 0) {
-    displayVariables(allVariables, currentBoundVariableId || undefined);
+    displayVariables(variablesToFilter, currentBoundVariableId || undefined);
     return;
   }
 
-  const filteredVariables = allVariables.filter((variable) => {
+  const filteredVariables = variablesToFilter.filter((variable) => {
     const name = String(variable.name || '').toLowerCase();
     const collection = String(variable.collection || '').toLowerCase();
     const value = String(variable.value || '').toLowerCase();
@@ -83,8 +165,25 @@ window.onmessage = (event) => {
   
   switch (message.type) {
     case 'variables-loaded':
-      allVariables = message.variables;
-      displayVariables(message.variables);
+      localVariables = message.variables;
+      allVariables = [...localVariables, ...externalVariables];
+      if (currentTab === 'local' || currentTab === 'all') {
+        displayVariables(currentTab === 'local' ? localVariables : allVariables);
+      }
+      break;
+    case 'external-variables-loading':
+      showExternalStatus('Loading external variables...', 'loading');
+      break;
+    case 'external-variables-loaded':
+      externalVariables = message.variables;
+      allVariables = [...localVariables, ...externalVariables];
+      showExternalStatus(`Loaded ${message.variables.length} external variables`, 'success');
+      if (currentTab === 'external' || currentTab === 'all') {
+        displayVariables(currentTab === 'external' ? externalVariables : allVariables);
+      }
+      break;
+    case 'external-variables-error':
+      showExternalStatus(`Error: ${message.error}`, 'error');
       break;
     case 'text-selected':
       displaySelectedText(message.text, message.nodeName, message.boundVariable);
@@ -172,9 +271,10 @@ function displayVariables(variables: any[], boundVariableId?: string, searchTerm
     const displayName = collection ? `${collection}/${name}` : name;
     const isBound = boundVariableId === variable.id;
     const boundClass = isBound ? ' bound' : '';
+    const sourceClass = variable.source === 'external' ? ' external' : ' local';
     
     return `
-      <div class="variable-item${boundClass}" onclick="selectVariable('${variable.id}')" title="${escapeHtml(displayName)}: ${escapeHtml(value)}${isBound ? ' (Currently Bound)' : ''}">
+      <div class="variable-item${boundClass}${sourceClass}" onclick="selectVariable('${variable.id}')" title="${escapeHtml(displayName)}: ${escapeHtml(value)}${isBound ? ' (Currently Bound)' : ''} [${variable.source || 'local'}]">
         <span class="variable-name">${highlight(displayName)}</span>
         <span class="variable-value">${highlight(String(value))}</span>
         ${isBound ? '<span class="bound-indicator">✓</span>' : ''}

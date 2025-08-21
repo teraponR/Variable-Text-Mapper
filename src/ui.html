@@ -298,6 +298,90 @@
       color: #666666;
       font-style: italic;
     }
+
+    .external-variables-section {
+      margin-bottom: 20px;
+      padding: 12px;
+      background: #f0f8ff;
+      border-radius: 6px;
+      border: 1px solid #b3d9ff;
+    }
+
+    .external-variables-section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #0066cc;
+    }
+
+    .external-input-container {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .external-input-container input {
+      flex: 1;
+    }
+
+    .external-status {
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+
+    .external-status.success {
+      background: #e8f5e8;
+      color: #2d5a2d;
+      border: 1px solid #c3e6c3;
+    }
+
+    .external-status.error {
+      background: #ffe8e8;
+      color: #5a2d2d;
+      border: 1px solid #e6c3c3;
+    }
+
+    .external-status.loading {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+    }
+
+    .variables-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 8px;
+    }
+
+    .tab-button {
+      padding: 4px 12px;
+      border: 1px solid #e5e5e5;
+      background: white;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .tab-button:hover {
+      background: #f0f0f0;
+    }
+
+    .tab-button.active {
+      background: #18a0fb;
+      color: white;
+      border-color: #18a0fb;
+    }
+
+    .variable-item.external {
+      border-left: 3px solid #0066cc;
+    }
+
+    .variable-item.local {
+      border-left: 3px solid #28a745;
+    }
   </style>
 </head>
 <body>
@@ -312,11 +396,26 @@
       </div>
     </div>
     
+    <!-- External Variables Section -->
+    <div class="external-variables-section">
+      <h3>Load External Variables</h3>
+      <div class="external-input-container">
+        <input type="text" id="file-key-input" class="search-input" placeholder="Enter Figma File Key (e.g., abc123def456)" />
+        <button class="btn btn-secondary" onclick="loadExternalVariables()" id="load-external-btn">Load from Library</button>
+      </div>
+      <div id="external-status" class="external-status hidden"></div>
+    </div>
+
     <!-- Variable Selection Section -->
     <div class="variable-selection-section">
       <h3>Select Variable to Bind</h3>
       <div class="search-container">
         <input type="text" id="variable-search" class="search-input" placeholder="Search variables..." oninput="filterVariables(this.value)">
+      </div>
+      <div class="variables-tabs">
+        <button class="tab-button active" onclick="switchTab('local')">Local</button>
+        <button class="tab-button" onclick="switchTab('external')">External</button>
+        <button class="tab-button" onclick="switchTab('all')">All</button>
       </div>
       <div id="variables-list" class="variables-list">
         <p class="loading">Loading variables...</p>

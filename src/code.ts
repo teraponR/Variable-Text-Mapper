@@ -39,7 +39,8 @@ async function loadVariables() {
           name: variable.name,
           value: value,
           type: variable.resolvedType,
-          collection: collection?.name || 'Unknown'
+          collection: collection?.name || 'Unknown',
+          source: 'local'
         });
       } catch (error) {
         // Skip variables that can't be processed
@@ -55,6 +56,42 @@ async function loadVariables() {
     figma.ui.postMessage({
       type: 'variables-loaded',
       variables: []
+    });
+  }
+}
+
+// Load external variables from Figma API
+async function loadExternalVariables(fileKey: string) {
+  try {
+    figma.ui.postMessage({
+      type: 'external-variables-loading'
+    });
+
+    // This would be the URL of your proxy server
+    const proxyUrl = 'http://localhost:5000'; // Update this to your server URL
+    const response = await fetch(`${proxyUrl}/api/figma/files/${fileKey}/variables`);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch variables: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Mark external variables with source
+    const externalVariables = data.variables.map((variable: any) => ({
+      ...variable,
+      source: 'external',
+      id: `external_${variable.id}` // Prefix to distinguish from local variables
+    }));
+    
+    figma.ui.postMessage({
+      type: 'external-variables-loaded',
+      variables: externalVariables
+    });
+  } catch (error) {
+    figma.ui.postMessage({
+      type: 'external-variables-error',
+      error: error instanceof Error ? error.message : String(error)
     });
   }
 }
@@ -130,6 +167,11 @@ figma.on('selectionchange', () => {
 });
 
 figma.ui.onmessage = async (msg) => {
+  if (msg.type === 'load-external-variables') {
+    const { fileKey } = msg;
+    await loadExternalVariables(fileKey);
+  }
+  
   if (msg.type === 'map-variables') {
     try {
       const { variableMappings } = msg;
