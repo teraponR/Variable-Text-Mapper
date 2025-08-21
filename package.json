@@ -1,0 +1,24 @@
+{
+  "name": "variable-text-mapper",
+  "version": "1.0.0",
+  "description": "A plugin for mapping and transforming variable text",
+  "main": "dist/code.js",
+  "scripts": {
+    "build": "tsc && node build-ui.js",
+    "watch": "tsc --watch",
+    "dev": "npm run build && npm run watch"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.82.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "figma",
+    "plugin",
+    "variable",
+    "text",
+    "mapper"
+  ],
+  "author": "",
+  "license": "MIT"
+}

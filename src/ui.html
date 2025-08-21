@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Variable Text Mapper</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #ffffff;
+      color: #333333;
+      padding: 16px;
+    }
+    
+    .container {
+      max-width: 100%;
+    }
+    
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #000000;
+    }
+    
+    .description {
+      font-size: 12px;
+      color: #666666;
+      margin-bottom: 20px;
+      line-height: 1.4;
+    }
+    
+    .mapping-section {
+      margin-bottom: 20px;
+    }
+    
+    .mapping-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+    
+    .mapping-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      font-size: 12px;
+      background: #ffffff;
+    }
+    
+    .mapping-input:focus {
+      outline: none;
+      border-color: #18a0fb;
+      box-shadow: 0 0 0 2px rgba(24, 160, 251, 0.1);
+    }
+    
+    .arrow {
+      color: #666666;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    
+    .add-mapping {
+      background: none;
+      border: 1px dashed #cccccc;
+      border-radius: 6px;
+      padding: 8px;
+      width: 100%;
+      color: #666666;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .add-mapping:hover {
+      border-color: #18a0fb;
+      color: #18a0fb;
+    }
+    
+    .remove-mapping {
+      background: none;
+      border: none;
+      color: #ff6b6b;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    
+    .remove-mapping:hover {
+      background: #fff5f5;
+    }
+    
+    .button-group {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+    }
+    
+    .btn {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-primary {
+      background: #18a0fb;
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #0d8ce0;
+    }
+    
+    .btn-secondary {
+      background: #f5f5f5;
+      color: #333333;
+    }
+    
+    .btn-secondary:hover {
+      background: #e5e5e5;
+    }
+    
+    .message {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      margin-top: 12px;
+    }
+    
+    .message.success {
+      background: #e8f5e8;
+      color: #2d5a2d;
+      border: 1px solid #c3e6c3;
+    }
+    
+    .message.error {
+      background: #ffe8e8;
+      color: #5a2d2d;
+      border: 1px solid #e6c3c3;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .selected-text-section {
+      margin-bottom: 20px;
+      padding: 12px;
+      background: #e8f5e8;
+      border-radius: 6px;
+      border: 1px solid #c3e6c3;
+    }
+    
+    .selected-text-section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #2d5a2d;
+    }
+    
+    .selected-text-info {
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    
+    .selected-text-content {
+      background: white;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #c3e6c3;
+      font-family: monospace;
+      word-break: break-all;
+    }
+    
+    .no-selection {
+      color: #666666;
+      font-style: italic;
+    }
+    
+    .bound-variable-info {
+      margin-top: 8px;
+      padding: 8px;
+      background: #fff3cd;
+      border-radius: 4px;
+      border: 1px solid #ffeaa7;
+      font-size: 11px;
+    }
+    
+    .variable-selection-section {
+      margin-bottom: 20px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 6px;
+      border: 1px solid #e5e5e5;
+    }
+    
+    .variable-selection-section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #333333;
+    }
+    
+    .search-container {
+      margin-bottom: 12px;
+    }
+    
+    .search-input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      font-size: 12px;
+      background: #ffffff;
+    }
+    
+    .search-input:focus {
+      outline: none;
+      border-color: #18a0fb;
+      box-shadow: 0 0 0 2px rgba(24, 160, 251, 0.1);
+    }
+
+    /* Highlight matching text in results */
+    .highlight {
+      background: #ffe69c;
+      padding: 0 2px;
+      border-radius: 2px;
+    }
+    
+    .variables-list {
+      max-height: 120px;
+      overflow-y: auto;
+      font-size: 11px;
+    }
+    
+    .variable-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px;
+      margin-bottom: 2px;
+      background: white;
+      border-radius: 4px;
+      border: 1px solid #e5e5e5;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    
+    .variable-item:hover {
+      background: #f0f0f0;
+    }
+    
+    .variable-item.selected {
+      background: #e3f2fd;
+      border-color: #18a0fb;
+    }
+    
+    .variable-item.bound {
+      background: #fff3cd;
+      border-color: #ffc107;
+    }
+    
+    .bound-indicator {
+      color: #28a745;
+      font-weight: bold;
+      margin-left: 4px;
+    }
+    
+    .variable-name {
+      font-weight: 500;
+      color: #333333;
+    }
+    
+    .variable-value {
+      color: #666666;
+      font-family: monospace;
+    }
+    
+    .loading {
+      color: #666666;
+      font-style: italic;
+    }
+    
+    .no-variables {
+      color: #666666;
+      font-style: italic;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Variable Text Mapper</h1>
+    
+    <!-- Selected Text Section -->
+    <div class="selected-text-section">
+      <h3>Selected Text Node</h3>
+      <div id="selected-text-info" class="selected-text-info">
+        <p class="no-selection">No text node selected. Please select a text node.</p>
+      </div>
+    </div>
+    
+    <!-- Variable Selection Section -->
+    <div class="variable-selection-section">
+      <h3>Select Variable to Bind</h3>
+      <div class="search-container">
+        <input type="text" id="variable-search" class="search-input" placeholder="Search variables..." oninput="filterVariables(this.value)">
+      </div>
+      <div id="variables-list" class="variables-list">
+        <p class="loading">Loading variables...</p>
+      </div>
+    </div>
+    
+    <div class="button-group">
+      <button class="btn btn-secondary" onclick="cancel()">Cancel</button>
+      <button class="btn btn-primary" onclick="bindVariable()" id="bind-button" disabled>Apply to Selection</button>
+    </div>
+    
+    <div id="message" class="message hidden"></div>
+  </div>
+  
+  <script src="ui.js"></script>
+</body>
+</html>
