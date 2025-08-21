@@ -33,23 +33,29 @@ window.bindVariable = () => {
 };
 
 // Load external variables
-window.loadExternalVariables = () => {
-  const fileKeyInput = document.getElementById('file-key-input') as HTMLInputElement;
-  const fileKey = fileKeyInput.value.trim();
-  
-  if (!fileKey) {
-    showExternalStatus('Please enter a Figma file key', 'error');
-    return;
-  }
-  
-  showExternalStatus('Loading external variables...', 'loading');
-  
-  parent.postMessage({
-    pluginMessage: {
-      type: 'load-external-variables',
-      fileKey: fileKey
+window.loadExternalVariables = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const fileKeyInput = document.getElementById('file-key-input') as HTMLInputElement;
+    const fileKey = fileKeyInput.value.trim();
+    
+    if (!fileKey) {
+      showExternalStatus('Please enter a Figma file key', 'error');
+      reject(new Error('Figma file key is required'));
+      return;
     }
-  }, '*');
+    
+    showExternalStatus('Loading external variables...', 'loading');
+    
+    parent.postMessage({
+      pluginMessage: {
+        type: 'load-external-variables',
+        fileKey: fileKey
+      }
+    }, '*');
+    
+    // Assuming some asynchronous operation could call resolve() when done
+    resolve();
+  });
 };
 
 // Switch between variable tabs
