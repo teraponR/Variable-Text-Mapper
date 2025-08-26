@@ -1,21 +1,8 @@
-// Global functions for UI interactions
-interface Window {
-  cancel: () => void;
-  bindVariable: () => void;
-  filterVariables: (searchTerm: string) => void;
-  selectVariable: (variableId: string) => void;
-  loadExternalVariables: () => void;
-  switchTab: (tab: string) => void;
-}
-
 // Global variables
-let allVariables: any[] = [];
-let localVariables: any[] = [];
-let externalVariables: any[] = [];
-let selectedVariableId: string | null = null;
-let selectedTextNodeId: string | null = null; // kept for display only, not required for apply
-let currentBoundVariableId: string | null = null;
-let currentTab: string = 'local';
+let allVariables = [];
+let selectedVariableId = null;
+let selectedTextNodeId = null; // kept for display only, not required for apply
+let currentBoundVariableId = null;
 
 // Bind variable to selected text node
 window.bindVariable = () => {
@@ -32,74 +19,11 @@ window.bindVariable = () => {
   }, '*');
 };
 
-// Load external variables
-window.loadExternalVariables = (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const fileKeyInput = document.getElementById('file-key-input') as HTMLInputElement;
-    const fileKey = fileKeyInput.value.trim();
-    
-    if (!fileKey) {
-      showExternalStatus('Please enter a Figma file key', 'error');
-      reject(new Error('Figma file key is required'));
-      return;
-    }
-    
-    showExternalStatus('Loading external variables...', 'loading');
-    
-    parent.postMessage({
-      pluginMessage: {
-        type: 'load-external-variables',
-        fileKey: fileKey
-      }
-    }, '*');
-    
-    // Assuming some asynchronous operation could call resolve() when done
-    resolve();
-  });
-};
 
-// Switch between variable tabs
-window.switchTab = (tab: string) => {
-  currentTab = tab;
-  
-  // Update tab buttons
-  document.querySelectorAll('.tab-button').forEach(btn => {
-    btn.classList.remove('active');
-  });
-  document.querySelector(`[onclick="switchTab('${tab}')"]`)?.classList.add('active');
-  
-  // Filter and display variables
-  let variablesToShow: any[] = [];
-  switch (tab) {
-    case 'local':
-      variablesToShow = localVariables;
-      break;
-    case 'external':
-      variablesToShow = externalVariables;
-      break;
-    case 'all':
-      variablesToShow = allVariables;
-      break;
-  }
-  
-  displayVariables(variablesToShow, currentBoundVariableId || undefined);
-};
 
-// Show external status message
-function showExternalStatus(message: string, type: 'success' | 'error' | 'loading') {
-  const statusEl = document.getElementById('external-status');
-  if (!statusEl) return;
-  
-  statusEl.textContent = message;
-  statusEl.className = `external-status ${type}`;
-  statusEl.classList.remove('hidden');
-  
-  if (type === 'success') {
-    setTimeout(() => {
-      statusEl.classList.add('hidden');
-    }, 3000);
-  }
-}
+
+
+
 
 // Filter variables based on search term
 window.filterVariables = (searchTerm: string) => {
@@ -163,6 +87,33 @@ function showMessage(message: string, type: 'success' | 'error') {
   }
 }
 
+// Show variable bound message with details
+function showVariableBoundMessage(message, variableDetails) {
+  const messageEl = document.getElementById('message');
+  if (!messageEl) return;
+  
+  messageEl.innerHTML = `
+    <div class="variable-bound-message">
+      <div class="success-message">${message}</div>
+      <div class="variable-details">
+        <div class="detail-row">
+          <strong>Variable name:</strong> ${escapeHtml(variableDetails.name)}
+        </div>
+        <div class="detail-row">
+          <strong>Value:</strong> ${escapeHtml(variableDetails.value)}
+        </div>
+      </div>
+    </div>
+  `;
+  messageEl.className = 'message success';
+  messageEl.classList.remove('hidden');
+  
+  // Auto-hide after 5 seconds
+  setTimeout(() => {
+    messageEl.classList.add('hidden');
+  }, 5000);
+}
+
 // Listen for messages from the plugin
 window.onmessage = (event) => {
   const message = event.data.pluginMessage;
@@ -171,25 +122,8 @@ window.onmessage = (event) => {
   
   switch (message.type) {
     case 'variables-loaded':
-      localVariables = message.variables;
-      allVariables = [...localVariables, ...externalVariables];
-      if (currentTab === 'local' || currentTab === 'all') {
-        displayVariables(currentTab === 'local' ? localVariables : allVariables);
-      }
-      break;
-    case 'external-variables-loading':
-      showExternalStatus('Loading external variables...', 'loading');
-      break;
-    case 'external-variables-loaded':
-      externalVariables = message.variables;
-      allVariables = [...localVariables, ...externalVariables];
-      showExternalStatus(`Loaded ${message.variables.length} external variables`, 'success');
-      if (currentTab === 'external' || currentTab === 'all') {
-        displayVariables(currentTab === 'external' ? externalVariables : allVariables);
-      }
-      break;
-    case 'external-variables-error':
-      showExternalStatus(`Error: ${message.error}`, 'error');
+      allVariables = message.variables;
+      displayVariables(allVariables);
       break;
     case 'text-selected':
       displaySelectedText(message.text, message.nodeName, message.boundVariable);
@@ -209,6 +143,9 @@ window.onmessage = (event) => {
     case 'success':
       showMessage(message.message, 'success');
       break;
+    case 'variable-bound':
+      showVariableBoundMessage(message.message, message.variableDetails);
+      break;
     case 'error':
       showMessage(message.message, 'error');
       break;
@@ -216,7 +153,7 @@ window.onmessage = (event) => {
 };
 
 // Display selected text information
-function displaySelectedText(text: string, nodeName: string, boundVariable?: any) {
+function displaySelectedText(text, nodeName, boundVariable) {
   const selectedTextInfo = document.getElementById('selected-text-info');
   if (!selectedTextInfo) return;
   
@@ -249,7 +186,7 @@ function displayNoSelection() {
 }
 
 // Display variables in the UI
-function displayVariables(variables: any[], boundVariableId?: string, searchTerm?: string) {
+function displayVariables(variables, boundVariableId, searchTerm) {
   const variablesList = document.getElementById('variables-list');
   if (!variablesList) return;
   
@@ -260,7 +197,7 @@ function displayVariables(variables: any[], boundVariableId?: string, searchTerm
   
   const query = (searchTerm || '').toLowerCase();
 
-  function highlight(text: string): string {
+  function highlight(text) {
     if (!query) return escapeHtml(text);
     const idx = text.toLowerCase().indexOf(query);
     if (idx === -1) return escapeHtml(text);
@@ -292,14 +229,14 @@ function displayVariables(variables: any[], boundVariableId?: string, searchTerm
 }
 
 // Escape HTML to prevent XSS
-function escapeHtml(text: string): string {
+function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
 // Select variable for binding
-window.selectVariable = (variableId: string) => {
+window.selectVariable = (variableId) => {
   selectedVariableId = variableId;
   
   // Update UI to show selection

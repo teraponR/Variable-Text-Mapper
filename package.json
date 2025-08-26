@@ -4,8 +4,8 @@
   "description": "A plugin for mapping and transforming variable text",
   "main": "dist/code.js",
   "scripts": {
-    "build": "tsc && node build-ui.js",
-    "watch": "tsc --watch",
+    "build": "cp src/code.js dist/code.js && node build-ui.js",
+    "watch": "nodemon --watch src --ext js,html --exec 'npm run build'",
     "dev": "npm run build && npm run watch"
   },
   "devDependencies": {
