@@ -19,17 +19,11 @@ window.bindVariable = () => {
   }, '*');
 };
 
-
-
-
-
-
-
 // Filter variables based on search term
 window.filterVariables = (searchTerm) => {
   const query = (searchTerm || '').trim().toLowerCase();
   
-  let variablesToFilter: any[] = [];
+  let variablesToFilter = [];
   switch (currentTab) {
     case 'local':
       variablesToFilter = localVariables;
@@ -145,7 +139,6 @@ window.onmessage = (event) => {
       displaySelectedText(message.text, message.nodeName, message.boundVariable);
       selectedTextNodeId = message.nodeId;
       currentBoundVariableId = message.boundVariable ? message.boundVariable.id : null;
-      // Update variables list to highlight bound variable
       if (message.boundVariable) {
         displayVariables(allVariables, message.boundVariable.id);
       } else {
@@ -178,15 +171,15 @@ function displaySelectedText(text, nodeName, boundVariable) {
     const displayName = boundVariable.collection ? `${boundVariable.collection}/${boundVariable.name}` : boundVariable.name;
     boundVariableHtml = `
       <div class="bound-variable-info">
-        <strong>Bound Variable:</strong> ${escapeHtml(displayName)}<br>
-        <strong>Current Value:</strong> ${escapeHtml(boundVariable.value)}
+        <strong>Variable:</strong> ${escapeHtml(displayName)}<br>
+        <strong>Value:</strong> ${escapeHtml(boundVariable.value)}
       </div>
     `;
   }
   
   selectedTextInfo.innerHTML = `
     <div class="selected-text-content">
-      <strong>Node:</strong> ${escapeHtml(nodeName)}<br>
+      <strong>Text element:</strong> ${escapeHtml(nodeName)}<br>
       <strong>Content:</strong> ${escapeHtml(text)}
     </div>
     ${boundVariableHtml}
@@ -254,7 +247,6 @@ function escapeHtml(text) {
 window.selectVariable = (variableId) => {
   selectedVariableId = variableId;
   
-  // Update UI to show selection
   document.querySelectorAll('.variable-item').forEach(item => {
     item.classList.remove('selected');
   });
@@ -264,7 +256,6 @@ window.selectVariable = (variableId) => {
     selectedItem.classList.add('selected');
   }
   
-  // Enable bind button
   const bindButton = document.getElementById('bind-button');
   if (bindButton) {
     bindButton.disabled = false;
@@ -273,13 +264,11 @@ window.selectVariable = (variableId) => {
 
 // Initialize the UI
 document.addEventListener('DOMContentLoaded', () => {
-  // Focus on the first input
   const firstInput = document.querySelector('.mapping-input');
   if (firstInput) {
     firstInput.focus();
   }
   
-  // Initialize resize functionality
   initResizeHandle();
 });
 

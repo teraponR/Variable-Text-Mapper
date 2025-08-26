@@ -6,7 +6,7 @@ figma.showUI(__html__, {
   visible: true
 });
 
-// Send available variables to UI when plugin starts
+// Load variables and send to UI
 async function loadVariables() {
   try {
     const localVariables = figma.variables.getLocalVariables();
@@ -46,7 +46,6 @@ async function loadVariables() {
           collection: collection ? collection.name : 'Unknown'
         });
       } catch (error) {
-        // Skip variables that can't be processed
         console.warn('Error processing variable:', variable.name, error);
       }
     }
@@ -63,8 +62,6 @@ async function loadVariables() {
   }
 }
 
-
-
 // Check current selection and send to UI
 function checkCurrentSelection() {
   const textNodes = figma.currentPage.selection.filter(
@@ -75,7 +72,6 @@ function checkCurrentSelection() {
     const textNode = textNodes[0];
     const selectedText = textNode.characters;
     
-    // Check if text node has bound variables
     const boundVariables = textNode.boundVariables;
     let boundVariableInfo = null;
     
@@ -84,10 +80,8 @@ function checkCurrentSelection() {
       const variable = figma.variables.getVariableById(typeof variableId === 'string' ? variableId : variableId.id);
       
       if (variable) {
-        // Get variable collection
         const collection = figma.variables.getVariableCollectionById(variable.variableCollectionId);
         
-        // Get current value
         let currentValue = 'N/A';
         if (variable.valuesByMode && Object.keys(variable.valuesByMode).length > 0) {
           const firstModeId = Object.keys(variable.valuesByMode)[0];
@@ -130,17 +124,21 @@ function checkCurrentSelection() {
 loadVariables();
 checkCurrentSelection();
 
-// Keep UI in sync when the user changes selection in the canvas
+// Keep UI in sync when selection changes
 figma.on('selectionchange', () => {
   checkCurrentSelection();
 });
 
+// ✅ รวม figma.ui.onmessage ให้เหลืออันเดียว
 figma.ui.onmessage = async (msg) => {
+  if (msg.type === 'resize') {
+    const { width, height } = msg.size;
+    figma.ui.resize(width, height);
+  }
+
   if (msg.type === 'map-variables') {
     try {
       const { variableMappings } = msg;
-      
-      // Get all text nodes in the current selection
       const textNodes = figma.currentPage.selection.filter(
         node => node.type === 'TEXT'
       );
@@ -153,19 +151,10 @@ figma.ui.onmessage = async (msg) => {
         return;
       }
       
-      // Debug: Send info about selected text nodes
-      console.log('Selected text nodes:', textNodes.map(node => ({
-        name: node.name,
-        characters: node.characters
-      })));
-      
-      // Apply variable mappings to each text node
       for (const textNode of textNodes) {
         await figma.loadFontAsync(textNode.fontName);
-        
         let newText = textNode.characters;
         
-        // Apply each mapping
         for (const oldValue in variableMappings) {
           if (variableMappings.hasOwnProperty(oldValue)) {
             const newValue = variableMappings[oldValue];
@@ -188,12 +177,10 @@ figma.ui.onmessage = async (msg) => {
       });
     }
   }
-  
+
   if (msg.type === 'bind-variable') {
     try {
       const { variableId } = msg;
-      
-      // Get the variable
       const variable = figma.variables.getVariableById(variableId);
       if (!variable) {
         figma.ui.postMessage({
@@ -202,7 +189,7 @@ figma.ui.onmessage = async (msg) => {
         });
         return;
       }
-      // Get all currently selected text nodes
+
       const textNodes = figma.currentPage.selection.filter(
         node => node.type === 'TEXT'
       );
@@ -215,18 +202,15 @@ figma.ui.onmessage = async (msg) => {
         return;
       }
 
-      // Bind the variable to each selected text node
       for (const textNode of textNodes) {
         await figma.loadFontAsync(textNode.fontName);
         textNode.setBoundVariable('characters', variableId);
       }
 
-      // Get variable details for display
       const collection = figma.variables.getVariableCollectionById(variable.variableCollectionId);
       const collectionName = collection ? collection.name : 'Unknown';
       const variablePath = `${collectionName}/${variable.name}`;
       
-      // Get current value
       let currentValue = 'N/A';
       if (variable.valuesByMode && Object.keys(variable.valuesByMode).length > 0) {
         const firstModeId = Object.keys(variable.valuesByMode)[0];
@@ -259,7 +243,7 @@ figma.ui.onmessage = async (msg) => {
       });
     }
   }
-  
+
   if (msg.type === 'cancel') {
     figma.closePlugin();
   }
