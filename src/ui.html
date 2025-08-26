@@ -264,6 +264,7 @@
     
     .search-container {
       margin-bottom: 12px;
+      position: relative;
     }
     
     .search-input {
@@ -281,6 +282,29 @@
       box-shadow: 0 0 0 2px rgba(24, 160, 251, 0.1);
     }
 
+    #suggestions-box {
+      position: absolute;
+      top: 38px;
+      left: 10px;
+      right: 10px;
+      background: white;
+      border: 1px solid #ccc;
+      max-height: 120px;
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    .suggestion-item {
+      padding: 5px 8px;
+      cursor: pointer;
+    }
+    .suggestion-item:hover {
+      background: #f0f0f0;
+    }
+    .suggestion-item.disabled {
+      color: #aaa;
+      cursor: default;
+    }
     /* Highlight matching text in results */
     .highlight {
       background: #ffe69c;
@@ -380,6 +404,7 @@
 
 /* suggestion dropdown */
 #suggestions-box {
+  display: none;;
   position: absolute;
   background: white;
   border: 1px solid #ccc;
@@ -422,6 +447,7 @@
       <h3>Select Variable to Bind</h3>
       <div class="search-container">
         <input type="text" id="variable-search" class="search-input" placeholder="Search variables..." oninput="filterVariables(this.value)">
+        <div id="suggestions-box"></div>
       </div>
 
       <div id="variables-list" class="variables-list">

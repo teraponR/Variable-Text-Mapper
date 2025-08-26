@@ -43,15 +43,22 @@ window.filterVariables = (searchTerm) => {
     );
   });
 
-  // Debug log
   console.log("DEBUG filterVariables query:", query, "results:", filteredVariables);
 
-  // Show suggestion dropdown
   if (filteredVariables.length > 0) {
     suggestionsBox.innerHTML = filteredVariables
       .slice(0, 5)
-      .map(v => `<div class="suggestion-item" onclick="applySuggestion('${escapeHtml(v.name)}')">${escapeHtml(v.name)}</div>`)
+      .map(v => `<div class="suggestion-item" data-value="${escapeHtml(v.name)}">${escapeHtml(v.name)}</div>`)
       .join('');
+
+    // bind click event (safe)
+    suggestionsBox.querySelectorAll('.suggestion-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const value = item.getAttribute('data-value');
+        window.applySuggestion(value);
+      });
+    });
+
   } else {
     suggestionsBox.innerHTML = '<div class="suggestion-item disabled">No matches</div>';
   }
@@ -160,7 +167,7 @@ function displaySelectedText(text, nodeName, boundVariable) {
       : boundVariable.name;
     boundVariableHtml = `
       <div class="bound-variable-info">
-        <strong>Bound Variable:</strong> ${escapeHtml(displayName)}<br>
+        <strong>Variable:</strong> ${escapeHtml(displayName)}<br>
         <strong>Current Value:</strong> ${escapeHtml(boundVariable.value)}
       </div>
     `;
@@ -168,7 +175,7 @@ function displaySelectedText(text, nodeName, boundVariable) {
 
   selectedTextInfo.innerHTML = `
     <div class="selected-text-content">
-      <strong>Node:</strong> ${escapeHtml(nodeName)}<br>
+      <strong>Text layer name:</strong> ${escapeHtml(nodeName)}<br>
       <strong>Content:</strong> ${escapeHtml(text)}
     </div>
     ${boundVariableHtml}
@@ -213,7 +220,7 @@ function displayVariables(variables, boundVariableId, searchTerm) {
     const boundClass = isBound ? ' bound' : '';
 
     return `
-      <div class="variable-item${boundClass}" onclick="selectVariable('${variable.id}')">
+      <div class="variable-item${boundClass}" data-id="${variable.id}">
         <span class="variable-name">${highlight(displayName)}</span>
         <span class="variable-value">${highlight(String(value))}</span>
         ${isBound ? '<span class="bound-indicator">✓</span>' : ''}
@@ -222,6 +229,14 @@ function displayVariables(variables, boundVariableId, searchTerm) {
   }).join('');
 
   variablesList.innerHTML = variablesHtml;
+
+  // bind click
+  variablesList.querySelectorAll('.variable-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const vid = item.getAttribute('data-id');
+      window.selectVariable(vid);
+    });
+  });
 }
 
 // Escape HTML
@@ -239,7 +254,7 @@ window.selectVariable = (variableId) => {
     item.classList.remove('selected');
   });
 
-  const selectedItem = document.querySelector(`[onclick="selectVariable('${variableId}')"]`);
+  const selectedItem = document.querySelector(`.variable-item[data-id="${variableId}"]`);
   if (selectedItem) selectedItem.classList.add('selected');
 
   const bindButton = document.getElementById('bind-button');
@@ -250,10 +265,12 @@ window.selectVariable = (variableId) => {
 
 // Init
 document.addEventListener('DOMContentLoaded', () => {
-  const searchInput = document.getElementById('variable-search'); // ✅ ใช้ id ที่ตรงกับ ui.html
+  const searchInput = document.getElementById('variable-search'); 
   if (searchInput) {
     searchInput.addEventListener('input', (e) => {
-      window.filterVariables(e.target.value);
+      const val = e.target.value;
+      console.log("DEBUG search input typing:", val);
+      window.filterVariables(val);
     });
     console.log("DEBUG search input found and listener attached");
   } else {
