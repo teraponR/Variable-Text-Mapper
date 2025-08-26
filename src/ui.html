@@ -15,10 +15,15 @@
       background: #ffffff;
       color: #333333;
       padding: 16px;
+      margin: 0;
+      overflow: hidden;
     }
     
     .container {
       max-width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
     
     h1 {
@@ -134,10 +139,23 @@
     }
     
     .message {
-      padding: 8px 12px;
-      border-radius: 6px;
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 16px;
+      border-radius: 8px;
       font-size: 12px;
-      margin-top: 12px;
+      z-index: 1000;
+      max-width: 300px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transform: translateX(100%);
+      transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+      opacity: 0;
+    }
+    
+    .message.show {
+      transform: translateX(0);
+      opacity: 1;
     }
     
     .message.success {
@@ -229,6 +247,10 @@
       background: #f8f9fa;
       border-radius: 6px;
       border: 1px solid #e5e5e5;
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
     }
     
     .variable-selection-section h3 {
@@ -265,7 +287,7 @@
     }
     
     .variables-list {
-      max-height: 120px;
+      flex: 1;
       overflow-y: auto;
       font-size: 11px;
     }
@@ -323,88 +345,19 @@
       font-style: italic;
     }
 
-    .external-variables-section {
-      margin-bottom: 20px;
-      padding: 12px;
-      background: #f0f8ff;
-      border-radius: 6px;
-      border: 1px solid #b3d9ff;
+    .resize-handle {
+      position: fixed;
+      bottom: 0;
+      right: 0;
+      width: 20px;
+      height: 20px;
+      cursor: nw-resize;
+      background: linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 40%, transparent 40%, transparent 60%, #ccc 60%, #ccc 70%, transparent 70%);
+      z-index: 1000;
     }
-
-    .external-variables-section h3 {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #0066cc;
-    }
-
-    .external-input-container {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-
-    .external-input-container input {
-      flex: 1;
-    }
-
-    .external-status {
-      font-size: 12px;
-      padding: 4px 8px;
-      border-radius: 4px;
-      margin-top: 8px;
-    }
-
-    .external-status.success {
-      background: #e8f5e8;
-      color: #2d5a2d;
-      border: 1px solid #c3e6c3;
-    }
-
-    .external-status.error {
-      background: #ffe8e8;
-      color: #5a2d2d;
-      border: 1px solid #e6c3c3;
-    }
-
-    .external-status.loading {
-      background: #fff3cd;
-      color: #856404;
-      border: 1px solid #ffeaa7;
-    }
-
-    .variables-tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 8px;
-    }
-
-    .tab-button {
-      padding: 4px 12px;
-      border: 1px solid #e5e5e5;
-      background: white;
-      border-radius: 4px;
-      font-size: 11px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    .tab-button:hover {
-      background: #f0f0f0;
-    }
-
-    .tab-button.active {
-      background: #18a0fb;
-      color: white;
-      border-color: #18a0fb;
-    }
-
-    .variable-item.external {
-      border-left: 3px solid #0066cc;
-    }
-
-    .variable-item.local {
-      border-left: 3px solid #28a745;
+    
+    .resize-handle:hover {
+      background: linear-gradient(-45deg, transparent 30%, #999 30%, #999 40%, transparent 40%, transparent 60%, #999 60%, #999 70%, transparent 70%);
     }
   </style>
 </head>
@@ -420,15 +373,7 @@
       </div>
     </div>
     
-    <!-- External Variables Section -->
-    <div class="external-variables-section">
-      <h3>Load External Variables</h3>
-      <div class="external-input-container">
-        <input type="text" id="file-key-input" class="search-input" placeholder="Enter Figma File Key (e.g., abc123def456)" />
-        <button class="btn btn-secondary" onclick="loadExternalVariables()" id="load-external-btn">Load from Library</button>
-      </div>
-      <div id="external-status" class="external-status hidden"></div>
-    </div>
+
 
     <!-- Variable Selection Section -->
     <div class="variable-selection-section">
@@ -436,23 +381,21 @@
       <div class="search-container">
         <input type="text" id="variable-search" class="search-input" placeholder="Search variables..." oninput="filterVariables(this.value)">
       </div>
-      <div class="variables-tabs">
-        <button class="tab-button active" onclick="switchTab('local')">Local</button>
-        <button class="tab-button" onclick="switchTab('external')">External</button>
-        <button class="tab-button" onclick="switchTab('all')">All</button>
-      </div>
+
       <div id="variables-list" class="variables-list">
         <p class="loading">Loading variables...</p>
       </div>
     </div>
     
     <div class="button-group">
-      <button class="btn btn-secondary" onclick="cancel()">Cancel</button>
       <button class="btn btn-primary" onclick="bindVariable()" id="bind-button" disabled>Apply to Selection</button>
     </div>
     
     <div id="message" class="message hidden"></div>
   </div>
+  
+  <!-- Resize handle -->
+  <div id="resize-handle" class="resize-handle"></div>
   
   <script src="ui.js"></script>
 </body>

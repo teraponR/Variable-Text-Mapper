@@ -1,8 +1,21 @@
+// Global functions for UI interactions
+interface Window {
+  cancel: () => void;
+  bindVariable: () => void;
+  filterVariables: (searchTerm: string) => void;
+  selectVariable: (variableId: string) => void;
+  loadExternalVariables: () => void;
+  switchTab: (tab: string) => void;
+}
+
 // Global variables
-let allVariables = [];
-let selectedVariableId = null;
-let selectedTextNodeId = null; // kept for display only, not required for apply
-let currentBoundVariableId = null;
+let allVariables: any[] = [];
+let localVariables: any[] = [];
+let externalVariables: any[] = [];
+let selectedVariableId: string | null = null;
+let selectedTextNodeId: string | null = null; // kept for display only, not required for apply
+let currentBoundVariableId: string | null = null;
+let currentTab: string = 'local';
 
 // Bind variable to selected text node
 window.bindVariable = () => {
@@ -19,14 +32,77 @@ window.bindVariable = () => {
   }, '*');
 };
 
+// Load external variables
+window.loadExternalVariables = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const fileKeyInput = document.getElementById('file-key-input') as HTMLInputElement;
+    const fileKey = fileKeyInput.value.trim();
+    
+    if (!fileKey) {
+      showExternalStatus('Please enter a Figma file key', 'error');
+      reject(new Error('Figma file key is required'));
+      return;
+    }
+    
+    showExternalStatus('Loading external variables...', 'loading');
+    
+    parent.postMessage({
+      pluginMessage: {
+        type: 'load-external-variables',
+        fileKey: fileKey
+      }
+    }, '*');
+    
+    // Assuming some asynchronous operation could call resolve() when done
+    resolve();
+  });
+};
 
+// Switch between variable tabs
+window.switchTab = (tab: string) => {
+  currentTab = tab;
+  
+  // Update tab buttons
+  document.querySelectorAll('.tab-button').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.querySelector(`[onclick="switchTab('${tab}')"]`)?.classList.add('active');
+  
+  // Filter and display variables
+  let variablesToShow: any[] = [];
+  switch (tab) {
+    case 'local':
+      variablesToShow = localVariables;
+      break;
+    case 'external':
+      variablesToShow = externalVariables;
+      break;
+    case 'all':
+      variablesToShow = allVariables;
+      break;
+  }
+  
+  displayVariables(variablesToShow, currentBoundVariableId || undefined);
+};
 
-
-
-
+// Show external status message
+function showExternalStatus(message: string, type: 'success' | 'error' | 'loading') {
+  const statusEl = document.getElementById('external-status');
+  if (!statusEl) return;
+  
+  statusEl.textContent = message;
+  statusEl.className = `external-status ${type}`;
+  statusEl.classList.remove('hidden');
+  
+  if (type === 'success') {
+    setTimeout(() => {
+      statusEl.classList.add('hidden');
+    }, 3000);
+  }
+}
 
 // Filter variables based on search term
-window.filterVariables = (searchTerm) => {
+window.filterVariables = (searchTerm: string) => {
   const query = (searchTerm || '').trim().toLowerCase();
   
   let variablesToFilter: any[] = [];
@@ -71,7 +147,7 @@ window.cancel = () => {
 };
 
 // Show message to user
-function showMessage(message, type) {
+function showMessage(message: string, type: 'success' | 'error') {
   const messageEl = document.getElementById('message');
   if (!messageEl) return;
   
@@ -79,24 +155,16 @@ function showMessage(message, type) {
   messageEl.className = `message ${type}`;
   messageEl.classList.remove('hidden');
   
-  // Trigger animation
-  setTimeout(() => {
-    messageEl.classList.add('show');
-  }, 10);
-  
   // Auto-hide success messages after 3 seconds
   if (type === 'success') {
     setTimeout(() => {
-      messageEl.classList.remove('show');
-      setTimeout(() => {
-        messageEl.classList.add('hidden');
-      }, 300);
+      messageEl.classList.add('hidden');
     }, 3000);
   }
 }
 
 // Show variable bound message with details
-function showVariableBoundMessage(message, variableDetails) {
+function showVariableBoundMessage(message: string, variableDetails: any) {
   const messageEl = document.getElementById('message');
   if (!messageEl) return;
   
@@ -116,17 +184,9 @@ function showVariableBoundMessage(message, variableDetails) {
   messageEl.className = 'message success';
   messageEl.classList.remove('hidden');
   
-  // Trigger animation
-  setTimeout(() => {
-    messageEl.classList.add('show');
-  }, 10);
-  
   // Auto-hide after 5 seconds
   setTimeout(() => {
-    messageEl.classList.remove('show');
-    setTimeout(() => {
-      messageEl.classList.add('hidden');
-    }, 300);
+    messageEl.classList.add('hidden');
   }, 5000);
 }
 
@@ -138,8 +198,25 @@ window.onmessage = (event) => {
   
   switch (message.type) {
     case 'variables-loaded':
-      allVariables = message.variables;
-      displayVariables(allVariables);
+      localVariables = message.variables;
+      allVariables = [...localVariables, ...externalVariables];
+      if (currentTab === 'local' || currentTab === 'all') {
+        displayVariables(currentTab === 'local' ? localVariables : allVariables);
+      }
+      break;
+    case 'external-variables-loading':
+      showExternalStatus('Loading external variables...', 'loading');
+      break;
+    case 'external-variables-loaded':
+      externalVariables = message.variables;
+      allVariables = [...localVariables, ...externalVariables];
+      showExternalStatus(`Loaded ${message.variables.length} external variables`, 'success');
+      if (currentTab === 'external' || currentTab === 'all') {
+        displayVariables(currentTab === 'external' ? externalVariables : allVariables);
+      }
+      break;
+    case 'external-variables-error':
+      showExternalStatus(`Error: ${message.error}`, 'error');
       break;
     case 'text-selected':
       displaySelectedText(message.text, message.nodeName, message.boundVariable);
@@ -169,7 +246,7 @@ window.onmessage = (event) => {
 };
 
 // Display selected text information
-function displaySelectedText(text, nodeName, boundVariable) {
+function displaySelectedText(text: string, nodeName: string, boundVariable?: any) {
   const selectedTextInfo = document.getElementById('selected-text-info');
   if (!selectedTextInfo) return;
   
@@ -202,7 +279,7 @@ function displayNoSelection() {
 }
 
 // Display variables in the UI
-function displayVariables(variables, boundVariableId, searchTerm) {
+function displayVariables(variables: any[], boundVariableId?: string, searchTerm?: string) {
   const variablesList = document.getElementById('variables-list');
   if (!variablesList) return;
   
@@ -213,7 +290,7 @@ function displayVariables(variables, boundVariableId, searchTerm) {
   
   const query = (searchTerm || '').toLowerCase();
 
-  function highlight(text) {
+  function highlight(text: string): string {
     if (!query) return escapeHtml(text);
     const idx = text.toLowerCase().indexOf(query);
     if (idx === -1) return escapeHtml(text);
@@ -230,9 +307,10 @@ function displayVariables(variables, boundVariableId, searchTerm) {
     const displayName = collection ? `${collection}/${name}` : name;
     const isBound = boundVariableId === variable.id;
     const boundClass = isBound ? ' bound' : '';
+    const sourceClass = variable.source === 'external' ? ' external' : ' local';
     
     return `
-      <div class="variable-item${boundClass}" onclick="selectVariable('${variable.id}')" title="${escapeHtml(displayName)}: ${escapeHtml(value)}${isBound ? ' (Currently Bound)' : ''}">
+      <div class="variable-item${boundClass}${sourceClass}" onclick="selectVariable('${variable.id}')" title="${escapeHtml(displayName)}: ${escapeHtml(value)}${isBound ? ' (Currently Bound)' : ''} [${variable.source || 'local'}]">
         <span class="variable-name">${highlight(displayName)}</span>
         <span class="variable-value">${highlight(String(value))}</span>
         ${isBound ? '<span class="bound-indicator">✓</span>' : ''}
@@ -244,14 +322,14 @@ function displayVariables(variables, boundVariableId, searchTerm) {
 }
 
 // Escape HTML to prevent XSS
-function escapeHtml(text) {
+function escapeHtml(text: string): string {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
 // Select variable for binding
-window.selectVariable = (variableId) => {
+window.selectVariable = (variableId: string) => {
   selectedVariableId = variableId;
   
   // Update UI to show selection
@@ -265,7 +343,7 @@ window.selectVariable = (variableId) => {
   }
   
   // Enable bind button
-  const bindButton = document.getElementById('bind-button');
+  const bindButton = document.getElementById('bind-button') as HTMLButtonElement;
   if (bindButton) {
     bindButton.disabled = false;
   }
@@ -274,51 +352,8 @@ window.selectVariable = (variableId) => {
 // Initialize the UI
 document.addEventListener('DOMContentLoaded', () => {
   // Focus on the first input
-  const firstInput = document.querySelector('.mapping-input');
+  const firstInput = document.querySelector('.mapping-input') as HTMLInputElement;
   if (firstInput) {
     firstInput.focus();
   }
-  
-  // Initialize resize functionality
-  initResizeHandle();
 });
-
-// Initialize resize handle
-function initResizeHandle() {
-  const resizeHandle = document.getElementById('resize-handle');
-  if (!resizeHandle) return;
-  
-  let isResizing = false;
-  let startX, startY, startWidth, startHeight;
-  
-  resizeHandle.addEventListener('mousedown', (e) => {
-    isResizing = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    startWidth = window.innerWidth;
-    startHeight = window.innerHeight;
-    
-    e.preventDefault();
-  });
-  
-  document.addEventListener('mousemove', (e) => {
-    if (!isResizing) return;
-    
-    const deltaX = e.clientX - startX;
-    const deltaY = e.clientY - startY;
-    
-    const newWidth = Math.max(400, startWidth + deltaX);
-    const newHeight = Math.max(600, startHeight + deltaY);
-    
-    parent.postMessage({
-      pluginMessage: {
-        type: 'resize',
-        size: { width: newWidth, height: newHeight }
-      }
-    }, '*');
-  });
-  
-  document.addEventListener('mouseup', () => {
-    isResizing = false;
-  });
-}
