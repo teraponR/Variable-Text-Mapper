@@ -1,6 +1,6 @@
 // code.js - Main plugin logic
 figma.showUI(__html__, {
-  width: 400,
+  width: 644,
   height: 600,
   themeColors: true,
   visible: true
