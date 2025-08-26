@@ -1,52 +1,57 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
   <meta charset="utf-8">
   <title>Variable Text Mapper</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
 </head>
-<body class="font-sans bg-white text-gray-800 h-screen flex flex-col p-4">
+<body class="font-sans h-full flex flex-col p-4 bg-white dark:bg-gray-900 text-gray-800 dark:text-gray-200">
   <div class="flex flex-col h-full max-w-full">
 
-    <!-- Header -->
-    <div class="mb-4">
-      <h1 class="text-lg font-semibold mb-1">Variable Text Mapper</h1>
-      <p class="text-xs text-gray-500">Select a text node and bind it to a variable.</p>
+    <!-- Title + Dark Mode Toggle -->
+    <div class="flex justify-between items-center mb-2">
+      <h1 class="text-lg font-semibold">Variable Text Mapper</h1>
+      <button id="mode-toggle" class="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-xs rounded">Toggle Dark Mode</button>
     </div>
+    <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">Select a text node and bind it to a variable.</p>
 
     <!-- Selected Text Section -->
-    <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
-      <h3 class="text-sm font-semibold text-green-700 mb-2">Selected Text Node</h3>
-      <div id="selected-text-info" class="text-xs text-gray-700">
-        <p class="italic text-gray-400">No text node selected. Please select a text node.</p>
+    <div class="mb-4 p-3 bg-green-50 dark:bg-green-800 border border-green-200 dark:border-green-700 rounded-md">
+      <h3 class="text-sm font-semibold text-green-700 dark:text-green-200 mb-2">Selected Text Node</h3>
+      <div id="selected-text-info" class="text-xs text-gray-700 dark:text-gray-200">
+        <p class="italic text-gray-400 dark:text-gray-400">No text node selected. Please select a text node.</p>
       </div>
     </div>
 
     <!-- Variable Selection Section -->
-    <div class="flex-1 flex flex-col bg-gray-50 border border-gray-200 rounded-md overflow-hidden">
-      <div class="p-3 border-b border-gray-200">
-        <h3 class="text-sm font-semibold text-gray-700 mb-2">Select Variable to Bind</h3>
+    <div class="flex flex-col flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden relative">
+      <div class="p-3 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">Select Variable to Bind</h3>
         <div class="relative">
           <input 
             type="text" 
             id="variable-search" 
             placeholder="Search variables..." 
-            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 pr-8"
+            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-700 dark:text-gray-200"
           />
-          <!-- Clear button -->
-          <button id="clear-search" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">&times;</button>
-          <div id="suggestions-box" class="absolute top-10 left-0 right-0 bg-white border border-gray-200 rounded-md shadow-md max-h-40 overflow-y-auto hidden z-10"></div>
+          <button id="clear-search" onclick="clearSearch()" class="absolute right-2 top-2 text-gray-400 dark:text-gray-300 hidden">✕</button>
+          <div id="suggestions-box" class="absolute top-10 left-0 right-0 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md shadow-md max-h-40 overflow-y-auto hidden z-10"></div>
         </div>
       </div>
       
       <!-- Variables list -->
-      <div id="variables-list" class="flex-1 overflow-y-auto text-sm divide-y divide-gray-200">
-        <p class="text-gray-400 italic p-3">Loading variables...</p>
+      <div id="variables-list" class="flex-1 overflow-y-auto text-sm divide-y divide-gray-200 dark:divide-gray-700 p-1">
+        <p class="text-gray-400 dark:text-gray-500 italic p-3">Loading variables...</p>
       </div>
     </div>
 
-    <!-- Footer Buttons (fixed bottom) -->
-    <div class="mt-4 flex justify-end pt-2 border-t border-gray-200 bg-white">
+    <!-- Footer Buttons -->
+    <div class="mt-4 flex justify-end sticky bottom-0 bg-white dark:bg-gray-900 p-2">
       <button id="bind-button" onclick="bindVariable()" disabled
         class="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md shadow-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
         Apply to Selection
@@ -54,11 +59,11 @@
     </div>
   </div>
 
-  <!-- Toast notification -->
-  <div id="message" class="hidden fixed top-5 right-5 px-4 py-2 rounded-md text-sm shadow-lg transform translate-x-full transition text-white"></div>
+  <!-- Message Toast -->
+  <div id="message" class="hidden fixed top-5 right-5 px-4 py-2 rounded-md text-sm shadow-lg transform translate-x-full transition"></div>
 
   <!-- Resize handle -->
-  <div id="resize-handle" class="fixed bottom-0 right-0 w-5 h-5 cursor-nw-resize bg-gradient-to-br from-transparent to-gray-300"></div>
+  <div id="resize-handle" class="fixed bottom-0 right-0 w-5 h-5 cursor-nw-resize bg-gradient-to-br from-transparent to-gray-300 dark:to-gray-600"></div>
 
   <script src="ui.js"></script>
 </body>
