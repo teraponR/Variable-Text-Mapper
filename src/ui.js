@@ -5,87 +5,88 @@ let selectedTextNodeId = null;
 let currentBoundVariableId = null;
 let selectedNodeText = '';
 let selectedNodeName = '';
-let isDarkMode = false;
+let themeMode = 'system';
 
-// === Dark Mode Toggle ===
+// === Theme Toggle ===
 document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('mode-toggle')?.addEventListener('click',()=>{
-    isDarkMode = !isDarkMode;
-    document.documentElement.classList.toggle('dark', isDarkMode);
+  document.querySelectorAll('.toggle-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      themeMode = btn.dataset.mode;
+      document.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('bg-white','dark:bg-gray-700','ring'));
+      btn.classList.add('bg-white','dark:bg-gray-700','ring');
+      applyTheme(themeMode);
+    });
   });
 });
 
-// === Bind variable to selected text node ===
-window.bindVariable = () => {
+// === Apply Theme ===
+function applyTheme(mode){
+  if(mode==='dark') document.documentElement.classList.add('dark');
+  else if(mode==='light') document.documentElement.classList.remove('dark');
+  else document.documentElement.classList.toggle('dark',window.matchMedia('(prefers-color-scheme: dark)').matches);
+}
+
+// === Bind variable ===
+window.bindVariable=()=>{
   if(!selectedVariableId){ showMessage('Please select a variable first','error'); return; }
   const boundVar = allVariables.find(v=>v.id===selectedVariableId);
   if(!boundVar) return;
-
   currentBoundVariableId = selectedVariableId;
   displayVariables(allVariables,currentBoundVariableId);
   if(selectedTextNodeId) displaySelectedText(selectedNodeText,selectedNodeName,boundVar);
   showMessage(`Variable "${boundVar.name}" applied`,'success');
-
   parent.postMessage({pluginMessage:{type:'bind-variable',variableId:selectedVariableId}},'*');
 };
 
 // === Filter + Suggestions ===
-window.filterVariables = (searchTerm)=>{
-  const query = (searchTerm||'').trim().toLowerCase();
-  const suggestionsBox = document.getElementById('suggestions-box');
+window.filterVariables=(searchTerm)=>{
+  const query=(searchTerm||'').trim().toLowerCase();
+  const suggestionsBox=document.getElementById('suggestions-box');
   if(!suggestionsBox) return;
-
-  if(query.length===0){ displayVariables(allVariables,currentBoundVariableId||undefined); suggestionsBox.style.display='none'; return; }
-
+  if(query.length===0){ displayVariables(allVariables,currentBoundVariableId); suggestionsBox.style.display='none'; return; }
   const filtered = allVariables.filter(v=>{
     const name=(v.name||'').toLowerCase();
     const collection=(v.collection||'').toLowerCase();
     const value=(v.value||'').toLowerCase();
     return name.includes(query)||collection.includes(query)||value.includes(query);
   });
-
   suggestionsBox.style.display='block';
-  suggestionsBox.innerHTML = filtered.length>0
-    ? filtered.slice(0,5).map(v=>`<div class="suggestion-item px-3 py-1 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer" onclick="applySuggestion('${escapeHtml(v.name)}')">${escapeHtml(v.name)}</div>`).join('')
+  suggestionsBox.innerHTML=filtered.length>0
+    ? filtered.slice(0,5).map(v=>`<div class="suggestion-item px-3 py-1 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer" onclick="applySuggestion('${v.name}')">${v.name}</div>`).join('')
     : '<div class="suggestion-item disabled px-3 py-1 text-gray-400 dark:text-gray-500">No matches</div>';
-
-  displayVariables(filtered,currentBoundVariableId||undefined,query);
+  displayVariables(filtered,currentBoundVariableId,query);
 };
 
 // === Apply suggestion ===
-window.applySuggestion = (value)=>{
-  const searchInput = document.getElementById('variable-search');
-  if(searchInput) searchInput.value = value;
+window.applySuggestion=(value)=>{
+  const searchInput=document.getElementById('variable-search');
+  if(searchInput) searchInput.value=value;
   window.filterVariables(value);
   document.getElementById('clear-search')?.classList.remove('hidden');
   document.getElementById('suggestions-box').style.display='none';
 };
 
 // === Clear search ===
-window.clearSearch = ()=>{
-  const searchInput = document.getElementById('variable-search');
+window.clearSearch=()=>{
+  const searchInput=document.getElementById('variable-search');
   if(searchInput) searchInput.value='';
   document.getElementById('clear-search')?.classList.add('hidden');
   window.filterVariables('');
 };
 
-// === Show Toast ===
+// === Toast ===
 function showMessage(msg,type){
   const el=document.getElementById('message');
   if(!el) return;
-
-  el.textContent = msg;
+  el.textContent=msg;
   el.classList.remove('bg-green-500','bg-red-500');
   el.classList.add(type==='success'?'bg-green-500':'bg-red-500');
-
   el.classList.remove('hidden','translate-x-0','opacity-100');
   el.classList.add('translate-x-full','opacity-0');
-
   setTimeout(()=>{
     el.classList.remove('translate-x-full','opacity-0');
     el.classList.add('translate-x-0','opacity-100');
   },10);
-
   setTimeout(()=>{
     el.classList.remove('translate-x-0','opacity-100');
     el.classList.add('translate-x-full','opacity-0');
@@ -95,7 +96,7 @@ function showMessage(msg,type){
 
 // === Messages from plugin ===
 window.onmessage=(event)=>{
-  const m = event.data.pluginMessage;
+  const m=event.data.pluginMessage;
   if(!m) return;
   switch(m.type){
     case 'variables-loaded': allVariables=m.variables; displayVariables(allVariables); break;
@@ -118,19 +119,17 @@ window.onmessage=(event)=>{
 function displaySelectedText(text,nodeName,bound){
   const info=document.getElementById('selected-text-info');
   if(!info) return;
-
   let boundHtml='';
   if(bound){
     const dn=bound.collection?`${bound.collection}/${bound.name}`:bound.name;
     boundHtml=`<div class="mt-2 p-2 rounded bg-yellow-50 dark:bg-yellow-800 border border-yellow-200 dark:border-yellow-700 text-xs">
-      <strong>Bound Variable:</strong> ${escapeHtml(dn)}<br>
-      <strong>Current Value:</strong> ${escapeHtml(bound.value)}
+      <strong>Bound Variable:</strong> ${dn}<br>
+      <strong>Current Value:</strong> ${bound.value}
     </div>`;
   }
-
   info.innerHTML=`<div class="p-2 rounded border border-green-200 dark:border-green-700 bg-white dark:bg-gray-900 text-xs">
-    <strong>Node:</strong> ${escapeHtml(nodeName)}<br>
-    <strong>Content:</strong> ${escapeHtml(text)}
+    <strong>Node:</strong> ${nodeName}<br>
+    <strong>Content:</strong> ${text}
   </div>${boundHtml}`;
 }
 
@@ -143,28 +142,24 @@ function displayVariables(vars,boundId,searchTerm){
   if(!list) return;
   const query=(searchTerm||'').toLowerCase();
   const highlight=text=>{
-    if(!query) return escapeHtml(text);
+    if(!query) return text;
     const idx=text.toLowerCase().indexOf(query);
-    if(idx===-1) return escapeHtml(text);
-    return escapeHtml(text.slice(0,idx)) + `<span class="bg-yellow-200">${escapeHtml(text.slice(idx,idx+query.length))}</span>` + escapeHtml(text.slice(idx+query.length));
+    if(idx===-1) return text;
+    return text.slice(0,idx) + `<span class="bg-yellow-200 dark:bg-yellow-600">${text.slice(idx,idx+query.length)}</span>` + text.slice(idx+query.length);
   };
-
   list.innerHTML=vars.map(v=>{
     const name=v.name||'Unnamed', value=v.value||'N/A', collection=v.collection||'Default';
     const isBound=boundId===v.id;
     return `<div class="variable-item flex justify-between items-start px-3 py-3 rounded-lg cursor-pointer transition-all hover:bg-blue-50 dark:hover:bg-blue-900 ${isBound?'bg-indigo-100 dark:bg-blue-600 border border-blue-300 dark:border-blue-500':''}" onclick="selectVariable('${v.id}')">
       <div class="flex flex-col gap-1">
-        <div class="flex gap-2 mt-1"><span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 dark:bg-blue-700 text-blue-800 dark:text-blue-200">Collection: ${escapeHtml(collection)}</span></div>
+        <div class="flex gap-2 mt-1"><span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 dark:bg-blue-700 text-blue-800 dark:text-blue-200">Collection: ${collection}</span></div>
         <span class="font-medium text-gray-800 dark:text-gray-200">${highlight(name)}</span>
         <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">${highlight(String(value))}</span>
       </div>
-      ${isBound?`<span class="text-green-600 dark:text-green-400 ml-2"><svg class="h-[1lh] w-5.5 shrink-0" viewBox="0 0 22 22" fill="none" stroke-linecap="square"> <circle cx="11" cy="11" r="11" class="fill-white/50" /> <circle cx="11" cy="11" r="10.5" class="stroke-blue-800/100" /> <path d="M8 11.5L10.5 14L14 8" class="stroke-blue-800 dark:stroke-blue-900" /> </svg></span>`:''}
+      ${isBound?`<span class="text-green-600 dark:text-green-400 ml-2"><svg class="h-5 w-5 shrink-0" viewBox="0 0 22 22" fill="none" stroke-linecap="square"> <circle cx="11" cy="11" r="11" class="fill-white/50" /> <circle cx="11" cy="11" r="10.5" class="stroke-blue-800/100" /> <path d="M8 11.5L10.5 14L14 8" class="stroke-blue-800 dark:stroke-blue-900" /> </svg></span>`:''}
     </div>`;
   }).join('');
 }
-
-// === Escape HTML ===
-function escapeHtml(text){ const div=document.createElement('div'); div.textContent=text; return div.innerHTML; }
 
 // === Select variable ===
 window.selectVariable=id=>{
@@ -188,5 +183,7 @@ function initResizeHandle(){
 // === Init ===
 document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('variable-search')?.addEventListener('input',e=>{window.filterVariables(e.target.value); document.getElementById('clear-search')?.classList.remove('hidden');});
+  document.getElementById('clear-search')?.addEventListener('click',()=>window.clearSearch());
   initResizeHandle();
+  applyTheme(themeMode);
 });
