@@ -4,12 +4,31 @@ let selectedVariableId = null;
 let selectedTextNodeId = null;
 let currentBoundVariableId = null;
 
+// Store current selected node info
+let selectedNodeText = '';
+let selectedNodeName = '';
+
 // Bind variable to selected text node
 window.bindVariable = () => {
   if (!selectedVariableId) {
     showMessage('Please select a variable first', 'error');
     return;
   }
+
+  const boundVar = allVariables.find(v => v.id === selectedVariableId);
+  if (!boundVar) return;
+
+  currentBoundVariableId = selectedVariableId;
+
+  // Refresh variable list to show checkmark
+  displayVariables(allVariables, currentBoundVariableId);
+
+  // Refresh selected text info
+  if (selectedTextNodeId) {
+    displaySelectedText(selectedNodeText, selectedNodeName, boundVar);
+  }
+
+  showMessage(`Variable "${boundVar.name}" applied`, 'success');
 
   parent.postMessage({
     pluginMessage: {
@@ -19,92 +38,72 @@ window.bindVariable = () => {
   }, '*');
 };
 
-// Filter variables based on search term + show suggestion
+// Filter variables + suggestions
 window.filterVariables = (searchTerm) => {
   const query = (searchTerm || '').trim().toLowerCase();
   const suggestionsBox = document.getElementById('suggestions-box');
-
   if (!suggestionsBox) return;
 
   if (query.length === 0) {
     displayVariables(allVariables, currentBoundVariableId || undefined);
-    suggestionsBox.innerHTML = '';
+    suggestionsBox.style.display = "none";
     return;
   }
 
-  const filteredVariables = allVariables.filter((variable) => {
-    const name = String(variable.name || '').toLowerCase();
-    const collection = String(variable.collection || '').toLowerCase();
-    const value = String(variable.value || '').toLowerCase();
-    return (
-      name.includes(query) ||
-      collection.includes(query) ||
-      value.includes(query)
-    );
+  const filtered = allVariables.filter(v => {
+    const name = String(v.name || '').toLowerCase();
+    const collection = String(v.collection || '').toLowerCase();
+    const value = String(v.value || '').toLowerCase();
+    return name.includes(query) || collection.includes(query) || value.includes(query);
   });
 
-  console.log("DEBUG filterVariables query:", query, "results:", filteredVariables);
+  suggestionsBox.style.display = "block";
+  suggestionsBox.innerHTML = filtered.length > 0
+    ? filtered.slice(0,5).map(v => `<div class="suggestion-item px-3 py-1 hover:bg-gray-100 cursor-pointer" onclick="applySuggestion('${escapeHtml(v.name)}')">${escapeHtml(v.name)}</div>`).join('')
+    : '<div class="suggestion-item disabled px-3 py-1 text-gray-400">No matches</div>';
 
-  if (filteredVariables.length > 0) {
-    suggestionsBox.innerHTML = filteredVariables
-      .slice(0, 5)
-      .map(v => `<div class="suggestion-item" data-value="${escapeHtml(v.name)}">${escapeHtml(v.name)}</div>`)
-      .join('');
-
-    // bind click event (safe)
-    suggestionsBox.querySelectorAll('.suggestion-item').forEach(item => {
-      item.addEventListener('click', () => {
-        const value = item.getAttribute('data-value');
-        window.applySuggestion(value);
-      });
-    });
-
-  } else {
-    suggestionsBox.innerHTML = '<div class="suggestion-item disabled">No matches</div>';
-  }
-
-  displayVariables(filteredVariables, currentBoundVariableId || undefined, query);
+  displayVariables(filtered, currentBoundVariableId || undefined, query);
 };
 
-// Apply suggestion (click from dropdown)
+// Apply suggestion
 window.applySuggestion = (value) => {
   const searchInput = document.getElementById('variable-search');
-  if (searchInput) {
-    searchInput.value = value;
-    window.filterVariables(value);
-  }
-  const suggestionsBox = document.getElementById('suggestions-box');
-  if (suggestionsBox) suggestionsBox.innerHTML = '';
+  if (searchInput) searchInput.value = value;
+  window.filterVariables(value);
+  document.getElementById('clear-search')?.classList.remove('hidden');
+  document.getElementById('suggestions-box').style.display = 'none';
 };
 
-// Cancel operation
-window.cancel = () => {
-  parent.postMessage({
-    pluginMessage: { type: 'cancel' }
-  }, '*');
+// Clear search input
+window.clearSearch = () => {
+  const searchInput = document.getElementById('variable-search');
+  if (searchInput) searchInput.value = '';
+  document.getElementById('clear-search')?.classList.add('hidden');
+  window.filterVariables('');
 };
 
-// Show message
+// Show toast message
 function showMessage(message, type) {
   const messageEl = document.getElementById('message');
   if (!messageEl) return;
 
   messageEl.textContent = message;
-  messageEl.className = `message ${type}`;
-  messageEl.classList.remove('hidden');
+  messageEl.classList.remove('bg-green-500','bg-red-500');
+  messageEl.classList.add(type==='success'?'bg-green-500':'bg-red-500');
+
+  messageEl.classList.remove('hidden','translate-x-0','opacity-100');
+  messageEl.classList.add('translate-x-full','opacity-0');
 
   setTimeout(() => {
-    messageEl.classList.add('show');
-  }, 10);
+    messageEl.classList.remove('translate-x-full','opacity-0');
+    messageEl.classList.add('translate-x-0','opacity-100');
+  },10);
 
-  if (type === 'success') {
-    setTimeout(() => {
-      messageEl.classList.remove('show');
-      setTimeout(() => {
-        messageEl.classList.add('hidden');
-      }, 300);
-    }, 3000);
-  }
+  setTimeout(() => {
+    messageEl.classList.remove('translate-x-0','opacity-100');
+    messageEl.classList.add('translate-x-full','opacity-0');
+    setTimeout(()=>messageEl.classList.add('hidden'),300);
+  },3000);
 }
 
 // Listen for messages from plugin
@@ -112,202 +111,148 @@ window.onmessage = (event) => {
   const message = event.data.pluginMessage;
   if (!message) return;
 
-  switch (message.type) {
+  switch(message.type) {
     case 'variables-loaded':
       allVariables = message.variables;
-      console.log("DEBUG variables-loaded:", allVariables);
       displayVariables(allVariables);
       break;
 
     case 'text-selected':
-      console.log("DEBUG text-selected:", message);
-      displaySelectedText(message.text, message.nodeName, message.boundVariable);
       selectedTextNodeId = message.nodeId;
+      selectedNodeText = message.text || '';
+      selectedNodeName = message.nodeName || 'Selected Node';
       currentBoundVariableId = message.boundVariable ? message.boundVariable.id : null;
-      if (message.boundVariable) {
-        displayVariables(allVariables, message.boundVariable.id);
-      } else {
-        displayVariables(allVariables);
-      }
+      displaySelectedText(selectedNodeText, selectedNodeName, message.boundVariable);
+      displayVariables(allVariables, currentBoundVariableId || undefined);
       break;
 
     case 'no-text-selected':
-      console.log("DEBUG no-text-selected");
-      displayNoSelection();
       selectedTextNodeId = null;
+      selectedNodeText = '';
+      selectedNodeName = '';
+      displayNoSelection();
       break;
 
     case 'success':
-      showMessage(message.message, 'success');
+      showMessage(message.message,'success');
       break;
 
     case 'variable-bound':
-      console.log("DEBUG variable-bound:", message.variableDetails);
-      showMessage(message.message, 'success');
+      showMessage(message.message,'success');
       break;
 
     case 'error':
-      console.error("DEBUG error:", message.message);
-      showMessage(message.message, 'error');
+      showMessage(message.message,'error');
       break;
   }
 };
 
-// Show selected text + bound variable
+// Display selected text + bound variable
 function displaySelectedText(text, nodeName, boundVariable) {
-  const selectedTextInfo = document.getElementById('selected-text-info');
-  if (!selectedTextInfo) return;
+  const infoEl = document.getElementById('selected-text-info');
+  if (!infoEl) return;
 
-  console.log("DEBUG displaySelectedText ->", { text, nodeName, boundVariable });
-
-  let boundVariableHtml = '';
+  let boundHtml = '';
   if (boundVariable) {
-    const displayName = boundVariable.collection
-      ? `${boundVariable.collection}/${boundVariable.name}`
-      : boundVariable.name;
-    boundVariableHtml = `
-      <div class="bound-variable-info">
+    const displayName = boundVariable.collection ? `${boundVariable.collection}/${boundVariable.name}` : boundVariable.name;
+    boundHtml = `
+      <div class="mt-2 p-2 rounded bg-yellow-50 border border-yellow-200 text-xs">
         <strong>Variable:</strong> ${escapeHtml(displayName)}<br>
         <strong>Current Value:</strong> ${escapeHtml(boundVariable.value)}
-      </div>
-    `;
+      </div>`;
   }
 
-  selectedTextInfo.innerHTML = `
-    <div class="selected-text-content">
-      <strong>Text layer name:</strong> ${escapeHtml(nodeName)}<br>
-      <strong>Content:</strong> ${escapeHtml(text)}
+  infoEl.innerHTML = `
+    <div class="p-2 rounded border border-green-200 bg-white text-xs">
+      <strong>Text element:</strong> ${escapeHtml(nodeName)}<br>
+      <strong>Current Content:</strong> ${escapeHtml(text)}
     </div>
-    ${boundVariableHtml}
-  `;
+    ${boundHtml}`;
 }
 
 // Show no selection
 function displayNoSelection() {
-  const selectedTextInfo = document.getElementById('selected-text-info');
-  if (!selectedTextInfo) return;
-  selectedTextInfo.innerHTML = '<p class="no-selection">No text node selected.</p>';
+  const infoEl = document.getElementById('selected-text-info');
+  if (!infoEl) return;
+  infoEl.innerHTML = '<p class="italic text-gray-400">No text node selected.</p>';
 }
 
-// Display variables in list
-function displayVariables(variables, boundVariableId, searchTerm) {
-  const variablesList = document.getElementById('variables-list');
-  if (!variablesList) return;
+// Display variables
+function displayVariables(variables, boundVariableId, searchTerm){
+  const listEl = document.getElementById('variables-list');
+  if(!listEl) return;
 
-  if (variables.length === 0) {
-    variablesList.innerHTML = '<p class="no-variables">No variables found</p>';
-    return;
-  }
-
-  const query = (searchTerm || '').toLowerCase();
-
-  function highlight(text) {
-    if (!query) return escapeHtml(text);
+  const query = (searchTerm||'').toLowerCase();
+  const highlight = text => {
+    if(!query) return escapeHtml(text);
     const idx = text.toLowerCase().indexOf(query);
-    if (idx === -1) return escapeHtml(text);
-    const before = escapeHtml(text.slice(0, idx));
-    const match = escapeHtml(text.slice(idx, idx + query.length));
-    const after = escapeHtml(text.slice(idx + query.length));
-    return `${before}<span class="highlight">${match}</span>${after}`;
-  }
+    if(idx===-1) return escapeHtml(text);
+    return escapeHtml(text.slice(0,idx)) + `<span class="bg-yellow-200">${escapeHtml(text.slice(idx,idx+query.length))}</span>` + escapeHtml(text.slice(idx+query.length));
+  };
 
-  const variablesHtml = variables.map(variable => {
-    const name = variable.name || 'Unnamed Variable';
-    const value = variable.value || 'N/A';
-    const collection = variable.collection || '';
-    const displayName = collection ? `${collection}/${name}` : name;
-    const isBound = boundVariableId === variable.id;
-    const boundClass = isBound ? ' bound' : '';
+  listEl.innerHTML = variables.map(v=>{
+    const name=v.name||'Unnamed', value=v.value||'N/A', collection=v.collection||'Default';
+    const isBound = boundVariableId===v.id;
 
     return `
-      <div class="variable-item${boundClass}" data-id="${variable.id}">
-        <span class="variable-name">${highlight(displayName)}</span>
-        <span class="variable-value">${highlight(String(value))}</span>
-        ${isBound ? '<span class="bound-indicator">✓</span>' : ''}
+      <div class="variable-item flex justify-between items-start px-3 py-3 rounded-lg cursor-pointer transition-all hover:bg-blue-50 ${isBound?'bg-blue-100 border border-blue-300':''}" onclick="selectVariable('${v.id}')">
+        <div class="flex flex-col gap-1">
+          <div class="flex gap-2 mt-1">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 text-blue-800">Collection: ${escapeHtml(collection)}</span>
+          </div>
+          <span class="font-medium text-gray-800">${highlight(name)}</span>
+          <span class="text-xs text-gray-500 font-mono">${highlight(String(value))}</span>
+        </div>
+        ${isBound?`<span class="text-green-600 ml-2"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414L9 14.414l-3.707-3.707a1 1 0 011.414-1.414L9 11.586l6.293-6.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg></span>`:''}
       </div>
     `;
   }).join('');
-
-  variablesList.innerHTML = variablesHtml;
-
-  // bind click
-  variablesList.querySelectorAll('.variable-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const vid = item.getAttribute('data-id');
-      window.selectVariable(vid);
-    });
-  });
 }
 
 // Escape HTML
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+function escapeHtml(text){ const div=document.createElement('div'); div.textContent=text; return div.innerHTML;}
 
 // Select variable
-window.selectVariable = (variableId) => {
-  selectedVariableId = variableId;
-
-  document.querySelectorAll('.variable-item').forEach(item => {
-    item.classList.remove('selected');
-  });
-
-  const selectedItem = document.querySelector(`.variable-item[data-id="${variableId}"]`);
-  if (selectedItem) selectedItem.classList.add('selected');
-
-  const bindButton = document.getElementById('bind-button');
-  if (bindButton) bindButton.disabled = false;
-
-  console.log("DEBUG selectVariable:", variableId);
+window.selectVariable = (id)=>{
+  selectedVariableId=id;
+  document.querySelectorAll('.variable-item').forEach(item=>item.classList.remove('bg-blue-100','border'));
+  const sel = document.querySelector(`[onclick="selectVariable('${id}')"]`);
+  if(sel) sel.classList.add('bg-blue-100','border');
+  document.getElementById('bind-button')?.removeAttribute('disabled');
 };
 
 // Init
-document.addEventListener('DOMContentLoaded', () => {
-  const searchInput = document.getElementById('variable-search'); 
-  if (searchInput) {
-    searchInput.addEventListener('input', (e) => {
-      const val = e.target.value;
-      console.log("DEBUG search input typing:", val);
-      window.filterVariables(val);
+document.addEventListener('DOMContentLoaded',()=>{
+  const searchInput = document.getElementById('variable-search');
+  if(searchInput){
+    searchInput.addEventListener('input',e=>{
+      window.filterVariables(e.target.value);
+      document.getElementById('clear-search')?.classList.remove('hidden');
     });
-    console.log("DEBUG search input found and listener attached");
-  } else {
-    console.error("DEBUG search input (#variable-search) not found");
   }
-
   initResizeHandle();
 });
 
 // Resize handle
-function initResizeHandle() {
-  const resizeHandle = document.getElementById('resize-handle');
-  if (!resizeHandle) return;
+function initResizeHandle(){
+  const handle = document.getElementById('resize-handle');
+  if(!handle) return;
 
-  let isResizing = false;
-  let startX, startY, startWidth, startHeight;
+  let resizing=false, startX, startY, startWidth, startHeight;
 
-  resizeHandle.addEventListener('mousedown', (e) => {
-    isResizing = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    startWidth = window.innerWidth;
-    startHeight = window.innerHeight;
+  handle.addEventListener('mousedown',e=>{
+    resizing=true;
+    startX=e.clientX; startY=e.clientY;
+    startWidth=window.innerWidth; startHeight=window.innerHeight;
     e.preventDefault();
   });
 
-  document.addEventListener('mousemove', (e) => {
-    if (!isResizing) return;
-    const deltaX = e.clientX - startX;
-    const deltaY = e.clientY - startY;
-    const newWidth = Math.max(400, startWidth + deltaX);
-    const newHeight = Math.max(600, startHeight + deltaY);
-
-    parent.postMessage({
-      pluginMessage: { type: 'resize', size: { width: newWidth, height: newHeight } }
-    }, '*');
+  document.addEventListener('mousemove',e=>{
+    if(!resizing) return;
+    const newWidth = Math.max(400,startWidth + (e.clientX-startX));
+    const newHeight = Math.max(600,startHeight + (e.clientY-startY));
+    parent.postMessage({pluginMessage:{type:'resize',size:{width:newWidth,height:newHeight}}},'*');
   });
 
-  document.addEventListener('mouseup', () => { isResizing = false; });
+  document.addEventListener('mouseup',()=>{resizing=false;});
 }

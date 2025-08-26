@@ -1,470 +1,65 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>Variable Text Mapper</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #ffffff;
-      color: #333333;
-      padding: 16px;
-      margin: 0;
-      overflow: hidden;
-    }
-    
-    .container {
-      max-width: 100%;
-      height: 100%;
-      display: flex;
-      flex-direction: column;
-    }
-    
-    h1 {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 16px;
-      color: #000000;
-    }
-    
-    .description {
-      font-size: 12px;
-      color: #666666;
-      margin-bottom: 20px;
-      line-height: 1.4;
-    }
-    
-    .mapping-section {
-      margin-bottom: 20px;
-    }
-    
-    .mapping-row {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
-      align-items: center;
-    }
-    
-    .mapping-input {
-      flex: 1;
-      padding: 8px 12px;
-      border: 1px solid #e5e5e5;
-      border-radius: 6px;
-      font-size: 12px;
-      background: #ffffff;
-    }
-    
-    .mapping-input:focus {
-      outline: none;
-      border-color: #18a0fb;
-      box-shadow: 0 0 0 2px rgba(24, 160, 251, 0.1);
-    }
-    
-    .arrow {
-      color: #666666;
-      font-size: 14px;
-      font-weight: bold;
-    }
-    
-    .add-mapping {
-      background: none;
-      border: 1px dashed #cccccc;
-      border-radius: 6px;
-      padding: 8px;
-      width: 100%;
-      color: #666666;
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .add-mapping:hover {
-      border-color: #18a0fb;
-      color: #18a0fb;
-    }
-    
-    .remove-mapping {
-      background: none;
-      border: none;
-      color: #ff6b6b;
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-    
-    .remove-mapping:hover {
-      background: #fff5f5;
-    }
-    
-    .button-group {
-      display: flex;
-      gap: 8px;
-      margin-top: 0;
-      justify-content: center;
-    }
-    
-    .btn {
-      flex: 1;
-      padding: 10px 16px;
-      border: none;
-      border-radius: 6px;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .btn-primary {
-      background: #18a0fb;
-      color: white;
-      max-width: 300px;
-    }
-    
-    .btn-primary:hover {
-      background: #0d8ce0;
-    }
-    
-    .btn-secondary {
-      background: #f5f5f5;
-      color: #333333;
-    }
-    
-    .btn-secondary:hover {
-      background: #e5e5e5;
-    }
-    
-    .message {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 12px 16px;
-      border-radius: 8px;
-      font-size: 12px;
-      z-index: 1000;
-      max-width: 300px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      transform: translateX(100%);
-      transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
-      opacity: 0;
-    }
-    
-    .message.show {
-      transform: translateX(0);
-      opacity: 1;
-    }
-    
-    .message.success {
-      background: #e8f5e8;
-      color: #2d5a2d;
-      border: 1px solid #c3e6c3;
-    }
-    
-    .message.error {
-      background: #ffe8e8;
-      color: #5a2d2d;
-      border: 1px solid #e6c3c3;
-    }
-    
-    .variable-bound-message {
-      line-height: 1.4;
-    }
-    
-    .success-message {
-      margin-bottom: 8px;
-      font-weight: 500;
-    }
-    
-    .variable-details {
-      background: rgba(255, 255, 255, 0.3);
-      padding: 8px;
-      border-radius: 4px;
-      font-size: 11px;
-    }
-    
-    .detail-row {
-      margin-bottom: 4px;
-    }
-    
-    .detail-row:last-child {
-      margin-bottom: 0;
-    }
-    
-    .hidden {
-      display: none;
-    }
-    
-    .selected-text-section {
-      margin-bottom: 20px;
-      padding: 12px;
-      background: #e8f5e8;
-      border-radius: 6px;
-      border: 1px solid #c3e6c3;
-    }
-    
-    .selected-text-section h3 {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #2d5a2d;
-    }
-    
-    .selected-text-info {
-      font-size: 12px;
-      line-height: 1.4;
-    }
-    
-    .selected-text-content {
-      background: white;
-      padding: 8px;
-      border-radius: 4px;
-      border: 1px solid #c3e6c3;
-      font-family: monospace;
-      word-break: break-all;
-    }
-    
-    .no-selection {
-      color: #666666;
-      font-style: italic;
-    }
-    
-    .bound-variable-info {
-      margin-top: 8px;
-      padding: 8px;
-      background: #fff3cd;
-      border-radius: 4px;
-      border: 1px solid #ffeaa7;
-      font-size: 11px;
-    }
-    
-    .variable-selection-section {
-      margin-bottom: 20px;
-      padding: 12px;
-      background: #f8f9fa;
-      border-radius: 6px;
-      border: 1px solid #e5e5e5;
-      flex: 1;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-    
-    .variable-selection-section h3 {
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #333333;
-    }
-    
-    .search-container {
-      margin-bottom: 12px;
-      position: relative;
-    }
-    
-    .search-input {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid #e5e5e5;
-      border-radius: 6px;
-      font-size: 12px;
-      background: #ffffff;
-    }
-    
-    .search-input:focus {
-      outline: none;
-      border-color: #18a0fb;
-      box-shadow: 0 0 0 2px rgba(24, 160, 251, 0.1);
-    }
-
-    #suggestions-box {
-      position: absolute;
-      top: 38px;
-      left: 10px;
-      right: 10px;
-      background: white;
-      border: 1px solid #ccc;
-      max-height: 120px;
-      overflow-y: auto;
-      z-index: 10;
-    }
-
-    .suggestion-item {
-      padding: 5px 8px;
-      cursor: pointer;
-    }
-    .suggestion-item:hover {
-      background: #f0f0f0;
-    }
-    .suggestion-item.disabled {
-      color: #aaa;
-      cursor: default;
-    }
-    /* Highlight matching text in results */
-    .highlight {
-      background: #ffe69c;
-      padding: 0 2px;
-      border-radius: 2px;
-    }
-    
-    .variables-list {
-      flex: 1;
-      overflow-y: auto;
-      font-size: 11px;
-    }
-    
-    .variable-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 4px 8px;
-      margin-bottom: 2px;
-      background: white;
-      border-radius: 4px;
-      border: 1px solid #e5e5e5;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    
-    .variable-item:hover {
-      background: #f0f0f0;
-    }
-    
-    .variable-item.selected {
-      background: #e3f2fd;
-      border-color: #18a0fb;
-    }
-    
-    .variable-item.bound {
-      background: #fff3cd;
-      border-color: #ffc107;
-    }
-    
-    .bound-indicator {
-      color: #28a745;
-      font-weight: bold;
-      margin-left: 4px;
-    }
-    
-    .variable-name {
-      font-weight: 500;
-      color: #333333;
-    }
-    
-    .variable-value {
-      color: #666666;
-      font-family: monospace;
-    }
-    
-    .loading {
-      color: #666666;
-      font-style: italic;
-    }
-    
-    .no-variables {
-      color: #666666;
-      font-style: italic;
-    }
-
-    .resize-handle {
-      position: fixed;
-      bottom: 0;
-      right: 0;
-      width: 20px;
-      height: 20px;
-      cursor: nw-resize;
-      background: linear-gradient(-45deg, transparent 30%, #ccc 30%, #ccc 40%, transparent 40%, transparent 60%, #ccc 60%, #ccc 70%, transparent 70%);
-      z-index: 1000;
-    }
-    
-    .resize-handle:hover {
-      background: linear-gradient(-45deg, transparent 30%, #999 30%, #999 40%, transparent 40%, transparent 60%, #999 60%, #999 70%, transparent 70%);
-    }
-
-/* ทำให้ปุ่ม apply ไม่ล้น dialog */
-.footer {
-  position: sticky;
-  bottom: 0;
-  background: white;
-  padding: 10px;
-  display: flex;
-  justify-content: flex-end;
-  border-top: 1px solid #ddd;
-}
-
-#variables-list {
-  max-height: calc(100vh - 150px);
-  overflow-y: auto;
-}
-
-/* suggestion dropdown */
-#suggestions-box {
-  display: none;;
-  position: absolute;
-  background: white;
-  border: 1px solid #ccc;
-  width: 100%;
-  max-height: 120px;
-  overflow-y: auto;
-  z-index: 10;
-}
-
-.suggestion-item {
-  padding: 5px 8px;
-  cursor: pointer;
-}
-.suggestion-item:hover {
-  background: #f0f0f0;
-}
-.suggestion-item.disabled {
-  color: #aaa;
-  cursor: default;
-}
-
-  </style>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
-  <div class="container">
-    <h1>Variable Text Mapper</h1>
-    
+<body class="font-sans bg-white text-gray-800 h-screen flex flex-col p-4">
+  <div class="flex flex-col h-full max-w-full">
+
+    <!-- Header -->
+    <div class="mb-4">
+      <h1 class="text-lg font-semibold mb-1">Variable Text Mapper</h1>
+      <p class="text-xs text-gray-500">Select a text node and bind it to a variable.</p>
+    </div>
+
     <!-- Selected Text Section -->
-    <div class="selected-text-section">
-      <h3>Selected Text Node</h3>
-      <div id="selected-text-info" class="selected-text-info">
-        <p class="no-selection">No text node selected. Please select a text node.</p>
+    <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-md">
+      <h3 class="text-sm font-semibold text-green-700 mb-2">Selected Text Node</h3>
+      <div id="selected-text-info" class="text-xs text-gray-700">
+        <p class="italic text-gray-400">No text node selected. Please select a text node.</p>
       </div>
     </div>
-    
-
 
     <!-- Variable Selection Section -->
-    <div class="variable-selection-section">
-      <h3>Select Variable to Bind</h3>
-      <div class="search-container">
-        <input type="text" id="variable-search" class="search-input" placeholder="Search variables..." oninput="filterVariables(this.value)">
-        <div id="suggestions-box"></div>
+    <div class="flex-1 flex flex-col bg-gray-50 border border-gray-200 rounded-md overflow-hidden">
+      <div class="p-3 border-b border-gray-200">
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">Select Variable to Bind</h3>
+        <div class="relative">
+          <input 
+            type="text" 
+            id="variable-search" 
+            placeholder="Search variables..." 
+            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 pr-8"
+          />
+          <!-- Clear button -->
+          <button id="clear-search" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">&times;</button>
+          <div id="suggestions-box" class="absolute top-10 left-0 right-0 bg-white border border-gray-200 rounded-md shadow-md max-h-40 overflow-y-auto hidden z-10"></div>
+        </div>
       </div>
+      
+      <!-- Variables list -->
+      <div id="variables-list" class="flex-1 overflow-y-auto text-sm divide-y divide-gray-200">
+        <p class="text-gray-400 italic p-3">Loading variables...</p>
+      </div>
+    </div>
 
-      <div id="variables-list" class="variables-list">
-        <p class="loading">Loading variables...</p>
-      </div>
+    <!-- Footer Buttons (fixed bottom) -->
+    <div class="mt-4 flex justify-end pt-2 border-t border-gray-200 bg-white">
+      <button id="bind-button" onclick="bindVariable()" disabled
+        class="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md shadow-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
+        Apply to Selection
+      </button>
     </div>
-    
-    <div class="button-group">
-      <button class="btn btn-primary" onclick="bindVariable()" id="bind-button" disabled>Apply to Selection</button>
-    </div>
-    
-    <div id="message" class="message hidden"></div>
   </div>
-  
+
+  <!-- Toast notification -->
+  <div id="message" class="hidden fixed top-5 right-5 px-4 py-2 rounded-md text-sm shadow-lg transform translate-x-full transition text-white"></div>
+
   <!-- Resize handle -->
-  <div id="resize-handle" class="resize-handle"></div>
-  
+  <div id="resize-handle" class="fixed bottom-0 right-0 w-5 h-5 cursor-nw-resize bg-gradient-to-br from-transparent to-gray-300"></div>
+
   <script src="ui.js"></script>
 </body>
 </html>
