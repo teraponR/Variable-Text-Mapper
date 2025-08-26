@@ -52,7 +52,7 @@ window.filterVariables=(searchTerm)=>{
   });
   suggestionsBox.style.display='block';
   suggestionsBox.innerHTML=filtered.length>0
-    ? filtered.slice(0,5).map(v=>`<div class="suggestion-item px-3 py-1 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer" onclick="applySuggestion('${v.name}')">${v.name}</div>`).join('')
+    ? filtered.slice(0,5).map(v=>`<div class="suggestion-item px-3 py-1 hover:bg-gray-100 dark:hover:bg-gray-100 cursor-pointer" onclick="applySuggestion('${v.name}')">${v.name}</div>`).join('')
     : '<div class="suggestion-item disabled px-3 py-1 text-gray-400 dark:text-gray-500">No matches</div>';
   displayVariables(filtered,currentBoundVariableId,query);
 };
@@ -136,37 +136,34 @@ function displaySelectedText(text,nodeName,bound){
 // === No selection ===
 function displayNoSelection(){ const info=document.getElementById('selected-text-info'); if(!info) return; info.innerHTML='<p class="italic text-gray-400 dark:text-gray-500">No text node selected.</p>'; }
 
-// === Display Variables List ===
+// === Display Variables List as RadioGroup ===
 function displayVariables(vars,boundId,searchTerm){
   const list=document.getElementById('variables-list');
   if(!list) return;
   const query=(searchTerm||'').toLowerCase();
-  const highlight=text=>{
-    if(!query) return text;
-    const idx=text.toLowerCase().indexOf(query);
-    if(idx===-1) return text;
-    return text.slice(0,idx) + `<span class="bg-yellow-200 dark:bg-yellow-600">${text.slice(idx,idx+query.length)}</span>` + text.slice(idx+query.length);
-  };
-  list.innerHTML=vars.map(v=>{
+  list.innerHTML='';
+  vars.forEach(v=>{
     const name=v.name||'Unnamed', value=v.value||'N/A', collection=v.collection||'Default';
-    const isBound=boundId===v.id;
-    return `<div class="variable-item flex justify-between items-start px-3 py-3 rounded-lg cursor-pointer transition-all hover:bg-blue-50 dark:hover:bg-blue-900 ${isBound?'bg-indigo-100 dark:bg-blue-600 border border-blue-300 dark:border-blue-500':''}" onclick="selectVariable('${v.id}')">
-      <div class="flex flex-col gap-1">
-        <div class="flex gap-2 mt-1"><span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 dark:bg-blue-700 text-blue-800 dark:text-blue-200">Collection: ${collection}</span></div>
-        <span class="font-medium text-gray-800 dark:text-gray-200">${highlight(name)}</span>
-        <span class="text-xs text-gray-500 dark:text-gray-400 font-mono">${highlight(String(value))}</span>
+    const id=v.id;
+    const wrapper=document.createElement('label');
+    wrapper.className=`relative flex cursor-pointer rounded-lg px-5 py-4 shadow-md focus:outline-none ${boundId===id?'bg-indigo-100 dark:bg-blue-900':'bg-white dark:bg-gray-800'} hover:bg-blue-50 dark:hover:bg-blue-900 border ${boundId===id?'border-blue-300 dark:border-blue-600':'border-gray-200 dark:border-gray-700'}`;
+    wrapper.innerHTML=`<div class="flex items-center justify-between w-full">
+      <div class="flex flex-col">
+        <span class="mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 dark:bg-blue-700 text-blue-800 dark:text-blue-200">Collection: ${collection}</span>
+        <span class="block text-sm font-medium text-gray-900 dark:text-gray-200">${name}</span>
+        <span class="block text-xs text-gray-500 dark:text-gray-400 font-mono">${value}</span>
       </div>
-      ${isBound?`<span class="text-green-600 dark:text-green-400 ml-2"><svg class="h-5 w-5 shrink-0" viewBox="0 0 22 22" fill="none" stroke-linecap="square"> <circle cx="11" cy="11" r="11" class="fill-white/50" /> <circle cx="11" cy="11" r="10.5" class="stroke-blue-800/100" /> <path d="M8 11.5L10.5 14L14 8" class="stroke-blue-800 dark:stroke-blue-900" /> </svg></span>`:''}
+      <input type="radio" name="variable-radio" value="${id}" class="h-5 w-5 text-blue-600 dark:text-blue-400" ${boundId===id?'checked':''}/>
     </div>`;
-  }).join('');
+    wrapper.querySelector('input')?.addEventListener('change',()=>selectVariable(id));
+    list.appendChild(wrapper);
+  });
 }
 
 // === Select variable ===
 window.selectVariable=id=>{
   selectedVariableId=id;
-  document.querySelectorAll('.variable-item').forEach(item=>item.classList.remove('bg-blue-100','dark:bg-blue-600','border','dark:border-blue-500'));
-  const sel=document.querySelector(`[onclick="selectVariable('${id}')"]`);
-  if(sel) sel.classList.add('bg-blue-100','dark:bg-blue-600','border','dark:border-blue-500');
+  displayVariables(allVariables,id);
   document.getElementById('bind-button')?.removeAttribute('disabled');
 };
 
