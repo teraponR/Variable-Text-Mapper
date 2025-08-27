@@ -11,68 +11,63 @@ let themeMode = 'system';
 document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('.toggle-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
-      themeMode = btn.dataset.mode;
+      themeMode=btn.dataset.mode;
       document.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('bg-white','dark:bg-gray-700','ring'));
       btn.classList.add('bg-white','dark:bg-gray-700','ring');
       applyTheme(themeMode);
     });
   });
+
+  document.getElementById('variable-search')?.addEventListener('input', e=>{
+    filterVariables(e.target.value);
+    document.getElementById('clear-search')?.classList.remove('hidden');
+  });
+
+  document.getElementById('clear-search')?.addEventListener('click', ()=>clearSearch());
+  initResizeHandle();
+  applyTheme(themeMode);
 });
 
 // === Apply Theme ===
 function applyTheme(mode){
   if(mode==='dark') document.documentElement.classList.add('dark');
   else if(mode==='light') document.documentElement.classList.remove('dark');
-  else document.documentElement.classList.toggle('dark',window.matchMedia('(prefers-color-scheme: dark)').matches);
+  else document.documentElement.classList.toggle('dark', window.matchMedia('(prefers-color-scheme: dark)').matches);
 }
 
-// === Bind variable ===
-window.bindVariable=()=>{
-  if(!selectedVariableId){ showMessage('Please select a variable first','error'); return; }
-  const boundVar = allVariables.find(v=>v.id===selectedVariableId);
-  if(!boundVar) return;
-  currentBoundVariableId = selectedVariableId;
-  displayVariables(allVariables,currentBoundVariableId);
-  if(selectedTextNodeId) displaySelectedText(selectedNodeText,selectedNodeName,boundVar);
-  showMessage(`Variable "${boundVar.name}" applied`,'success');
-  parent.postMessage({pluginMessage:{type:'bind-variable',variableId:selectedVariableId}},'*');
-};
-
 // === Filter + Suggestions ===
-window.filterVariables=(searchTerm)=>{
+function filterVariables(searchTerm){
   const query=(searchTerm||'').trim().toLowerCase();
   const suggestionsBox=document.getElementById('suggestions-box');
   if(!suggestionsBox) return;
   if(query.length===0){ displayVariables(allVariables,currentBoundVariableId); suggestionsBox.style.display='none'; return; }
-  const filtered = allVariables.filter(v=>{
+  const filtered=allVariables.filter(v=>{
     const name=(v.name||'').toLowerCase();
     const collection=(v.collection||'').toLowerCase();
     const value=(v.value||'').toLowerCase();
     return name.includes(query)||collection.includes(query)||value.includes(query);
   });
-  suggestionsBox.style.display='ืnone';
+  suggestionsBox.style.display=filtered.length>0?'block':'none';
   suggestionsBox.innerHTML=filtered.length>0
-    ? filtered.slice(0,5).map(v=>`<div class="suggestion-item px-3 py-1 hover:bg-gray-100 dark:hover:bg-gray-100 cursor-pointer" onclick="applySuggestion('${v.name}')">${v.name}</div>`).join('')
+    ? filtered.slice(0,5).map(v=>`<div class="suggestion-item px-3 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" onclick="applySuggestion('${v.name}')">${v.name}</div>`).join('')
     : '<div class="suggestion-item disabled px-3 py-1 text-gray-400 dark:text-gray-500">No matches</div>';
   displayVariables(filtered,currentBoundVariableId,query);
-};
+}
 
-// === Apply suggestion ===
-window.applySuggestion=(value)=>{
+function applySuggestion(value){
   const searchInput=document.getElementById('variable-search');
   if(searchInput) searchInput.value=value;
-  window.filterVariables(value);
+  filterVariables(value);
   document.getElementById('clear-search')?.classList.remove('hidden');
   document.getElementById('suggestions-box').style.display='none';
-};
+}
 
-// === Clear search ===
-window.clearSearch=()=>{
+function clearSearch(){
   const searchInput=document.getElementById('variable-search');
   if(searchInput) searchInput.value='';
   document.getElementById('clear-search')?.classList.add('hidden');
-  window.filterVariables('');
-};
+  filterVariables('');
+}
 
 // === Toast ===
 function showMessage(msg,type){
@@ -101,9 +96,7 @@ window.onmessage=(event)=>{
   switch(m.type){
     case 'variables-loaded': allVariables=m.variables; displayVariables(allVariables); break;
     case 'text-selected':
-      selectedTextNodeId=m.nodeId;
-      selectedNodeText=m.text||'';
-      selectedNodeName=m.nodeName||'Selected Node';
+      selectedTextNodeId=m.nodeId; selectedNodeText=m.text||''; selectedNodeName=m.nodeName||'Selected Node';
       currentBoundVariableId=m.boundVariable?m.boundVariable.id:null;
       displaySelectedText(selectedNodeText,selectedNodeName,m.boundVariable);
       displayVariables(allVariables,currentBoundVariableId||undefined);
@@ -136,7 +129,7 @@ function displaySelectedText(text,nodeName,bound){
 // === No selection ===
 function displayNoSelection(){ const info=document.getElementById('selected-text-info'); if(!info) return; info.innerHTML='<p class="italic text-gray-400 dark:text-gray-500">No text node selected.</p>'; }
 
-// === Display Variables List as RadioGroup ===
+// === Display Variables List ===
 function displayVariables(vars,boundId,searchTerm){
   const list=document.getElementById('variables-list');
   if(!list) return;
@@ -161,11 +154,17 @@ function displayVariables(vars,boundId,searchTerm){
 }
 
 // === Select variable ===
-window.selectVariable=id=>{
+function selectVariable(id){
   selectedVariableId=id;
   displayVariables(allVariables,id);
   document.getElementById('bind-button')?.removeAttribute('disabled');
-};
+}
+
+// === Bind variable ===
+function bindVariable(){
+  if(!selectedVariableId){ showMessage('Please select a variable first','error'); return; }
+  parent.postMessage({pluginMessage:{type:'bind-variable',variableId:selectedVariableId}},'*');
+}
 
 // === Resize handle ===
 function initResizeHandle(){
@@ -176,11 +175,3 @@ function initResizeHandle(){
   document.addEventListener('mousemove',e=>{if(!r) return; const nw=Math.max(400,sW+(e.clientX-sX)), nh=Math.max(600,sH+(e.clientY-sY)); parent.postMessage({pluginMessage:{type:'resize',size:{width:nw,height:nh}}},'*');});
   document.addEventListener('mouseup',()=>{r=false;});
 }
-
-// === Init ===
-document.addEventListener('DOMContentLoaded',()=>{
-  document.getElementById('variable-search')?.addEventListener('input',e=>{window.filterVariables(e.target.value); document.getElementById('clear-search')?.classList.remove('hidden');});
-  document.getElementById('clear-search')?.addEventListener('click',()=>window.clearSearch());
-  initResizeHandle();
-  applyTheme(themeMode);
-});

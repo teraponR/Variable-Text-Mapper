@@ -6,16 +6,12 @@
   "ui": "dist/ui.html",
   "editorType": ["figma", "figjam", "dev"],
   "capabilities": ["codegen"],
-  "documentAccess": "dynamic-page",
   "codegenLanguages": [{
     "label": "JavaScript",
     "value": "javascript"
-  }, {
-    "label": "TypeScript",
-    "value": "typescript"
   }],
-  "permissions": [
-    "currentuser",
-    "activeusers"
-  ]
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["https://cdn.tailwindcss.com"]
+  }
 }

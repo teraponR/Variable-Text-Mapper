@@ -9,7 +9,7 @@
     "dev": "npm run build && npm run watch"
   },
   "devDependencies": {
-    "@figma/plugin-typings": "^1.82.0",
+    "@figma/plugin-typings": "*",
     "typescript": "^5.0.0"
   },
   "dependencies": {
