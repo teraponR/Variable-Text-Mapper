@@ -50,7 +50,7 @@ window.filterVariables=(searchTerm)=>{
     const value=(v.value||'').toLowerCase();
     return name.includes(query)||collection.includes(query)||value.includes(query);
   });
-  suggestionsBox.style.display='block';
+  suggestionsBox.style.display='ืnone';
   suggestionsBox.innerHTML=filtered.length>0
     ? filtered.slice(0,5).map(v=>`<div class="suggestion-item px-3 py-1 hover:bg-gray-100 dark:hover:bg-gray-100 cursor-pointer" onclick="applySuggestion('${v.name}')">${v.name}</div>`).join('')
     : '<div class="suggestion-item disabled px-3 py-1 text-gray-400 dark:text-gray-500">No matches</div>';
