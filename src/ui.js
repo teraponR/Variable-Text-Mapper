@@ -4,9 +4,10 @@ let filteredVariables = [];
 let selectedVariableId = null;
 let selectedVariableObject = null;
 let selectedTextNodeId = null;
-let currentBoundVariableId = null;
 let selectedNodeText = '';
 let selectedNodeName = '';
+let currentBoundVariable = null; // 🔹 variable เดิมจาก node
+let applyVariableObject = null;   // 🔹 variable ที่เลือกจะ apply
 let themeMode = 'system';
 
 // === Theme Toggle + Init ===
@@ -46,7 +47,7 @@ function filterVariables(searchTerm){
 
   if(query.length === 0){
     filteredVariables = [...allVariables];
-    displayVariables(filteredVariables, currentBoundVariableId);
+    displayVariables(filteredVariables, selectedVariableId);
     suggestionsBox.style.display = 'none';
     return;
   }
@@ -63,7 +64,7 @@ function filterVariables(searchTerm){
     ? filteredVariables.slice(0,5).map(v => `<div class="suggestion-item px-3 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" onclick="applySuggestion('${v.name}')">${v.name}</div>`).join('')
     : '<div class="suggestion-item disabled px-3 py-1 text-gray-400 dark:text-gray-500">No matches</div>';
 
-  displayVariables(filteredVariables, currentBoundVariableId, query);
+  displayVariables(filteredVariables, selectedVariableId, query);
 }
 
 function applySuggestion(value){
@@ -116,13 +117,16 @@ window.onmessage = (event) => {
       selectedTextNodeId = m.nodeId;
       selectedNodeText = m.text||'';
       selectedNodeName = m.nodeName||'Selected Node';
-      currentBoundVariableId = m.boundVariable? m.boundVariable.id : null;
-      displaySelectedText(selectedNodeText, selectedNodeName, m.boundVariable || selectedVariableObject);
-      displayVariables(filteredVariables, currentBoundVariableId || undefined);
+      currentBoundVariable = m.boundVariable || null; // 🔹 เก็บ variable เดิม
+      applyVariableObject = null; // ยังไม่เลือกอะไร
+
+      displaySelectedText(selectedNodeText, selectedNodeName, currentBoundVariable, applyVariableObject);
+      displayVariables(filteredVariables, currentBoundVariable ? currentBoundVariable.id : null);
       break;
 
     case 'no-text-selected':
       selectedTextNodeId=null; selectedNodeText=''; selectedNodeName='';
+      currentBoundVariable = null; applyVariableObject = null;
       displayNoSelection();
       break;
 
@@ -132,16 +136,11 @@ window.onmessage = (event) => {
 
     case 'variable-bound':
       showMessage(m.message,'success');
-      // 🔥 อัปเดต UI ทันทีหลัง bind
-      if(selectedTextNodeId && selectedVariableObject){
-        const bound = {
-          id: selectedVariableObject.id,
-          name: selectedVariableObject.name,
-          value: selectedVariableObject.value,
-          collection: selectedVariableObject.collection
-        };
-        displaySelectedText(selectedNodeText, selectedNodeName, bound);
-        displayVariables(filteredVariables, selectedVariableId);
+      if(selectedTextNodeId && applyVariableObject){
+        currentBoundVariable = {...applyVariableObject};
+        applyVariableObject = null;
+        displaySelectedText(selectedNodeText, selectedNodeName, currentBoundVariable, applyVariableObject);
+        displayVariables(filteredVariables, currentBoundVariable.id);
       }
       break;
 
@@ -151,36 +150,44 @@ window.onmessage = (event) => {
   }
 };
 
-// === Display selected text + selected/bound variable ===
-function displaySelectedText(text,nodeName,bound){
+// === Display selected text + currently + apply variable ===
+function displaySelectedText(text,nodeName,currentlyVar,applyVar){
   const info=document.getElementById('selected-text-info');
   if(!info) return;
 
-  // 🔹 fallback ใช้ selectedVariableObject ถ้า bound ไม่มี
-  let displayBound = bound || selectedVariableObject;
-  let boundHtml='';
-  let variableName = displayBound ? (displayBound.collection ? `${displayBound.collection}/${displayBound.name}` : displayBound.name) : '';
+  let currentlyHtml = '';
+  console.log(currentlyVar);
+  if(currentlyVar){
+    const dn = currentlyVar.collection ? `${currentlyVar.collection}/${currentlyVar.name}` : currentlyVar.name;
+    const val = currentlyVar.value ?? 'N/A';
+    currentlyHtml = `<div class="mt-2 p-2 rounded bg-yellow-50 dark:bg-yellow-800 border border-yellow-200 dark:border-yellow-700 text-xs">
+      <!--<strong>Text element:</strong> ${currentlyVar.name}<br>-->
+      <strong>Currently variable:</strong> ${dn}<br>
+      <strong>Content:</strong> ${val}
+    </div>`;
+  }
 
-  if(displayBound){
-    const val = displayBound.value ?? 'N/A';
-    boundHtml=`<div class="mt-2 p-2 rounded bg-yellow-50 dark:bg-yellow-800 border border-yellow-200 dark:border-yellow-700 text-xs">
-      <strong>${bound ? 'Bound Variable' : 'Selected Variable'}:</strong> ${variableName}<br>
-      <strong>Current Value:</strong> ${val}
+  let applyHtml = '';
+  if(applyVar){
+    const dn = applyVar.collection ? `${applyVar.collection}/${applyVar.name}` : applyVar.name;
+    const val = applyVar.value ?? 'N/A';
+    applyHtml = `<div class="mt-2 p-2 rounded bg-blue-200 dark:bg-blue-700 border border-blue-200 dark:border-blue-700 text-xs">
+      <strong>Apply variable:</strong> ${dn}<br>
+      <strong>Content:</strong> ${val}
     </div>`;
   }
 
   info.innerHTML=`<div class="p-2 rounded border border-green-200 dark:border-green-700 bg-white dark:bg-gray-900 text-xs">
     <strong>Text element:</strong> ${nodeName}<br>
-    <strong>Variable:</strong> ${variableName || 'None'}<br>
-    <strong>Content:</strong> ${text}
-  </div>${boundHtml}`;
+    <!--<strong>Content:</strong> ${text}-->
+  </div>${currentlyHtml}${applyHtml}`;
 }
 
 // === No selection ===
 function displayNoSelection(){ 
   const info=document.getElementById('selected-text-info'); 
   if(!info) return; 
-  info.innerHTML='<p class="italic text-gray-400 dark:text-gray-500">No text node selected.</p>'; 
+  info.innerHTML='<p class="italic text-gray-500 dark:text-white">No text node selected.</p>'; 
 }
 
 // === Display Variables List ===
@@ -194,24 +201,23 @@ function displayVariables(vars,boundId,searchTerm){
     const name=v.name||'Unnamed', value=v.value||'N/A', collection=v.collection||'Default', type=v.type||'Unknown';
     const id=v.id;
 
-    const isSelected = (selectedVariableId === id); // 🔹 highlight selected variable
-
     const wrapper=document.createElement('label');
     wrapper.className=`relative flex cursor-pointer rounded-lg px-5 py-4 shadow-md focus:outline-none ${
-      isSelected ? 'bg-indigo-100 dark:bg-blue-900 border-blue-300 dark:border-blue-600' 
-                 : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-    } hover:bg-blue-50 dark:hover:bg-blue-900`;
+      boundId===id?'bg-indigo-100 dark:bg-blue-900':'bg-white dark:bg-gray-800'
+    } hover:bg-blue-50 dark:hover:bg-blue-900 border ${
+      boundId===id?'border-blue-300 dark:border-blue-600':'border-gray-200 dark:border-gray-700'
+    }`;
 
     wrapper.innerHTML=`<div class="flex items-center justify-between w-full">
       <div class="flex flex-col gap-1">
         <div class="flex gap-2 flex-wrap">
           <span class="inline-flex w-fit px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 dark:bg-blue-700 text-blue-800 dark:text-blue-200">Collection: ${collection}</span>
-          <span class="inline-flex w-fit px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 dark:bg-green-700 text-green-800 dark:text-green-200">Type: ${type}</span>
+          <span class="inline-flex w-fit px-2 py-0.5 rounded-full text-[10px] lowercase font-medium bg-green-100 dark:bg-green-700 text-green-800 dark:text-green-200">Type: ${type}</span>
         </div>
         <span class="block text-sm font-medium text-gray-900 dark:text-gray-200">${name}</span>
         <span class="block text-xs text-gray-500 dark:text-gray-400 font-mono">${value}</span>
       </div>
-      <input type="radio" name="variable-radio" value="${id}" class="h-5 w-5 text-blue-600 dark:text-blue-400" ${isSelected ? 'checked':''}/>
+      <input type="radio" name="variable-radio" value="${id}" class="h-5 w-5 text-blue-600 dark:text-blue-400" ${boundId===id?'checked':''}/>
     </div>`;
 
     wrapper.querySelector('input')?.addEventListener('change',()=>{
@@ -225,15 +231,15 @@ function displayVariables(vars,boundId,searchTerm){
 // === Select variable ===
 function selectVariable(id){
   selectedVariableId = id;
-  selectedVariableObject = allVariables.find(v => v.id===id);
-  displaySelectedText(selectedNodeText, selectedNodeName, null); // 🔹 แสดงชื่อ variable ที่เลือกทันที
-  displayVariables(filteredVariables, selectedVariableId);         // 🔹 highlight ตัวเลือก
+  applyVariableObject = allVariables.find(v => v.id===id); // 🔹 variable preview
+  displaySelectedText(selectedNodeText, selectedNodeName, currentBoundVariable, applyVariableObject);
+  displayVariables(filteredVariables, selectedVariableId);
   document.getElementById('bind-button')?.removeAttribute('disabled');
 }
 
 // === Bind variable ===
 function bindVariable(){
-  if(!selectedVariableObject){
+  if(!applyVariableObject){
     showMessage('Please select a variable first','error');
     return;
   }
@@ -241,23 +247,16 @@ function bindVariable(){
   parent.postMessage({
     pluginMessage: {
       type: 'bind-variable',
-      variableObject: selectedVariableObject
+      variableObject: applyVariableObject
     }
   }, '*');
 
   // 🔥 อัปเดต UI ทันที
-  if(selectedTextNodeId){
-    const bound = {
-      id: selectedVariableObject.id,
-      name: selectedVariableObject.name,
-      value: selectedVariableObject.value,
-      collection: selectedVariableObject.collection
-    };
-    displaySelectedText(selectedNodeText, selectedNodeName, bound);
-  }
-
-  displayVariables(filteredVariables, selectedVariableId);
-  showMessage(`Bound "${selectedVariableObject.name}" to selection`, 'success');
+  currentBoundVariable = {...applyVariableObject};
+  applyVariableObject = null;
+  displaySelectedText(selectedNodeText, selectedNodeName, currentBoundVariable, applyVariableObject);
+  displayVariables(filteredVariables, currentBoundVariable.id);
+  showMessage(`Bound "${currentBoundVariable.name}" to selection`, 'success');
 }
 
 // === Resize handle ===
