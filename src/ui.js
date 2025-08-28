@@ -1,6 +1,6 @@
 // === Global Variables ===
 let allVariables = [];
-let filteredVariables = []; // เก็บผลลัพธ์ search ล่าสุด
+let filteredVariables = [];
 let selectedVariableId = null;
 let selectedVariableObject = null;
 let selectedTextNodeId = null;
@@ -45,7 +45,7 @@ function filterVariables(searchTerm){
   if(!suggestionsBox) return;
 
   if(query.length === 0){
-    filteredVariables = [...allVariables]; // reset
+    filteredVariables = [...allVariables];
     displayVariables(filteredVariables, currentBoundVariableId);
     suggestionsBox.style.display = 'none';
     return;
@@ -132,6 +132,18 @@ window.onmessage = (event) => {
 
     case 'variable-bound':
       showMessage(m.message,'success');
+
+      // 🔥 อัปเดต UI ทันทีหลัง bind
+      if(selectedTextNodeId && selectedVariableObject){
+        const bound = {
+          id: selectedVariableObject.id,
+          name: selectedVariableObject.name,
+          value: selectedVariableObject.value,
+          collection: selectedVariableObject.collection
+        };
+        displaySelectedText(selectedNodeText, selectedNodeName, bound);
+        displayVariables(filteredVariables, selectedVariableId);
+      }
       break;
 
     case 'error':
@@ -177,11 +189,18 @@ function displayVariables(vars,boundId,searchTerm){
     const id=v.id;
 
     const wrapper=document.createElement('label');
-    wrapper.className=`relative flex cursor-pointer rounded-lg px-5 py-4 shadow-md focus:outline-none ${boundId===id?'bg-indigo-100 dark:bg-blue-900':'bg-white dark:bg-gray-800'} hover:bg-blue-50 dark:hover:bg-blue-900 border ${boundId===id?'border-blue-300 dark:border-blue-600':'border-gray-200 dark:border-gray-700'}`;
+    wrapper.className=`relative flex cursor-pointer rounded-lg px-5 py-4 shadow-md focus:outline-none ${
+      boundId===id?'bg-indigo-100 dark:bg-blue-900':'bg-white dark:bg-gray-800'
+    } hover:bg-blue-50 dark:hover:bg-blue-900 border ${
+      boundId===id?'border-blue-300 dark:border-blue-600':'border-gray-200 dark:border-gray-700'
+    }`;
+
     wrapper.innerHTML=`<div class="flex items-center justify-between w-full">
-      <div class="flex flex-col">
-        <span class="mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 dark:bg-blue-700 text-blue-800 dark:text-blue-200">Collection: ${collection}</span>
-        <span class="mt-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 dark:bg-green-700 text-green-800 dark:text-green-200">Type: ${type}</span>
+      <div class="flex flex-col gap-1">
+        <div class="flex gap-2 flex-wrap">
+          <span class="inline-flex w-fit px-2 py-0.5 rounded-full text-[10px] font-medium bg-blue-100 dark:bg-blue-700 text-blue-800 dark:text-blue-200">Collection: ${collection}</span>
+          <span class="inline-flex w-fit px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-100 dark:bg-green-700 text-green-800 dark:text-green-200">Type: ${type}</span>
+        </div>
         <span class="block text-sm font-medium text-gray-900 dark:text-gray-200">${name}</span>
         <span class="block text-xs text-gray-500 dark:text-gray-400 font-mono">${value}</span>
       </div>
@@ -200,7 +219,6 @@ function displayVariables(vars,boundId,searchTerm){
 function selectVariable(id){
   selectedVariableId = id;
   selectedVariableObject = allVariables.find(v => v.id===id);
-  // 🔑 render ด้วย filteredVariables ไม่ใช่ allVariables
   displayVariables(filteredVariables, id);
   document.getElementById('bind-button')?.removeAttribute('disabled');
 }
@@ -219,8 +237,19 @@ function bindVariable(){
     }
   }, '*');
 
-  // ✅ หลัง bind เสร็จ ยัง render ด้วย filteredVariables → search result คงอยู่
+  // 🔥 อัปเดต UI ทันที
+  if(selectedTextNodeId){
+    const bound = {
+      id: selectedVariableObject.id,
+      name: selectedVariableObject.name,
+      value: selectedVariableObject.value,
+      collection: selectedVariableObject.collection
+    };
+    displaySelectedText(selectedNodeText, selectedNodeName, bound);
+  }
+
   displayVariables(filteredVariables, selectedVariableId);
+  showMessage(`Bound "${selectedVariableObject.name}" to selection`, 'success');
 }
 
 // === Resize handle ===
