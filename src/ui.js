@@ -1,5 +1,6 @@
 // === Global Variables ===
 let allVariables = [];
+let filteredVariables = []; // เก็บผลลัพธ์ search ล่าสุด
 let selectedVariableId = null;
 let selectedVariableObject = null;
 let selectedTextNodeId = null;
@@ -13,8 +14,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       themeMode = btn.dataset.mode;
-      document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('bg-blue-600', 'text-white', 'ring-2', 'ring-blue-400'));
-      btn.classList.add('bg-blue-600', 'text-white', 'ring-2', 'ring-blue-400');
+      document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('bg-blue-600','text-white','ring-2','ring-blue-400'));
+      btn.classList.add('bg-blue-600','text-white','ring-2','ring-blue-400');
       applyTheme(themeMode);
     });
   });
@@ -44,24 +45,25 @@ function filterVariables(searchTerm){
   if(!suggestionsBox) return;
 
   if(query.length === 0){
-    displayVariables(allVariables, currentBoundVariableId);
+    filteredVariables = [...allVariables]; // reset
+    displayVariables(filteredVariables, currentBoundVariableId);
     suggestionsBox.style.display = 'none';
     return;
   }
 
-  const filtered = allVariables.filter(v => {
+  filteredVariables = allVariables.filter(v => {
     const name = (v.name||'').toLowerCase();
     const collection = (v.collection||'').toLowerCase();
     const value = (v.value||'').toLowerCase();
     return name.includes(query) || collection.includes(query) || value.includes(query);
   });
 
-  suggestionsBox.style.display = filtered.length > 0 ? 'block' : 'none';
-  suggestionsBox.innerHTML = filtered.length > 0
-    ? filtered.slice(0,5).map(v => `<div class="suggestion-item px-3 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" onclick="applySuggestion('${v.name}')">${v.name}</div>`).join('')
+  suggestionsBox.style.display = filteredVariables.length > 0 ? 'block' : 'none';
+  suggestionsBox.innerHTML = filteredVariables.length > 0
+    ? filteredVariables.slice(0,5).map(v => `<div class="suggestion-item px-3 py-1 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer" onclick="applySuggestion('${v.name}')">${v.name}</div>`).join('')
     : '<div class="suggestion-item disabled px-3 py-1 text-gray-400 dark:text-gray-500">No matches</div>';
 
-  displayVariables(filtered, currentBoundVariableId, query);
+  displayVariables(filteredVariables, currentBoundVariableId, query);
 }
 
 function applySuggestion(value){
@@ -106,7 +108,8 @@ window.onmessage = (event) => {
   switch(m.type){
     case 'variables-loaded':
       allVariables = m.variables;
-      displayVariables(allVariables);
+      filteredVariables = [...allVariables];
+      displayVariables(filteredVariables);
       break;
 
     case 'text-selected':
@@ -115,7 +118,7 @@ window.onmessage = (event) => {
       selectedNodeName = m.nodeName||'Selected Node';
       currentBoundVariableId = m.boundVariable? m.boundVariable.id : null;
       displaySelectedText(selectedNodeText, selectedNodeName, m.boundVariable);
-      displayVariables(allVariables, currentBoundVariableId || undefined);
+      displayVariables(filteredVariables, currentBoundVariableId || undefined);
       break;
 
     case 'no-text-selected':
@@ -197,7 +200,8 @@ function displayVariables(vars,boundId,searchTerm){
 function selectVariable(id){
   selectedVariableId = id;
   selectedVariableObject = allVariables.find(v => v.id===id);
-  displayVariables(allVariables, id);
+  // 🔑 render ด้วย filteredVariables ไม่ใช่ allVariables
+  displayVariables(filteredVariables, id);
   document.getElementById('bind-button')?.removeAttribute('disabled');
 }
 
@@ -214,6 +218,9 @@ function bindVariable(){
       variableObject: selectedVariableObject
     }
   }, '*');
+
+  // ✅ หลัง bind เสร็จ ยัง render ด้วย filteredVariables → search result คงอยู่
+  displayVariables(filteredVariables, selectedVariableId);
 }
 
 // === Resize handle ===
