@@ -117,7 +117,7 @@ window.onmessage = (event) => {
       selectedNodeText = m.text||'';
       selectedNodeName = m.nodeName||'Selected Node';
       currentBoundVariableId = m.boundVariable? m.boundVariable.id : null;
-      displaySelectedText(selectedNodeText, selectedNodeName, m.boundVariable);
+      displaySelectedText(selectedNodeText, selectedNodeName, m.boundVariable || selectedVariableObject);
       displayVariables(filteredVariables, currentBoundVariableId || undefined);
       break;
 
@@ -132,7 +132,6 @@ window.onmessage = (event) => {
 
     case 'variable-bound':
       showMessage(m.message,'success');
-
       // 🔥 อัปเดต UI ทันทีหลัง bind
       if(selectedTextNodeId && selectedVariableObject){
         const bound = {
@@ -152,20 +151,27 @@ window.onmessage = (event) => {
   }
 };
 
-// === Display selected text + bound variable ===
+// === Display selected text + selected/bound variable ===
 function displaySelectedText(text,nodeName,bound){
   const info=document.getElementById('selected-text-info');
   if(!info) return;
+
+  // 🔹 fallback ใช้ selectedVariableObject ถ้า bound ไม่มี
+  let displayBound = bound || selectedVariableObject;
   let boundHtml='';
-  if(bound){
-    const dn=bound.collection?`${bound.collection}/${bound.name}`:bound.name;
+  let variableName = displayBound ? (displayBound.collection ? `${displayBound.collection}/${displayBound.name}` : displayBound.name) : '';
+
+  if(displayBound){
+    const val = displayBound.value ?? 'N/A';
     boundHtml=`<div class="mt-2 p-2 rounded bg-yellow-50 dark:bg-yellow-800 border border-yellow-200 dark:border-yellow-700 text-xs">
-      <strong>Bound Variable:</strong> ${dn}<br>
-      <strong>Current Value:</strong> ${bound.value}
+      <strong>${bound ? 'Bound Variable' : 'Selected Variable'}:</strong> ${variableName}<br>
+      <strong>Current Value:</strong> ${val}
     </div>`;
   }
+
   info.innerHTML=`<div class="p-2 rounded border border-green-200 dark:border-green-700 bg-white dark:bg-gray-900 text-xs">
-    <strong>Node:</strong> ${nodeName}<br>
+    <strong>Text element:</strong> ${nodeName}<br>
+    <strong>Variable:</strong> ${variableName || 'None'}<br>
     <strong>Content:</strong> ${text}
   </div>${boundHtml}`;
 }
@@ -188,12 +194,13 @@ function displayVariables(vars,boundId,searchTerm){
     const name=v.name||'Unnamed', value=v.value||'N/A', collection=v.collection||'Default', type=v.type||'Unknown';
     const id=v.id;
 
+    const isSelected = (selectedVariableId === id); // 🔹 highlight selected variable
+
     const wrapper=document.createElement('label');
     wrapper.className=`relative flex cursor-pointer rounded-lg px-5 py-4 shadow-md focus:outline-none ${
-      boundId===id?'bg-indigo-100 dark:bg-blue-900':'bg-white dark:bg-gray-800'
-    } hover:bg-blue-50 dark:hover:bg-blue-900 border ${
-      boundId===id?'border-blue-300 dark:border-blue-600':'border-gray-200 dark:border-gray-700'
-    }`;
+      isSelected ? 'bg-indigo-100 dark:bg-blue-900 border-blue-300 dark:border-blue-600' 
+                 : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+    } hover:bg-blue-50 dark:hover:bg-blue-900`;
 
     wrapper.innerHTML=`<div class="flex items-center justify-between w-full">
       <div class="flex flex-col gap-1">
@@ -204,7 +211,7 @@ function displayVariables(vars,boundId,searchTerm){
         <span class="block text-sm font-medium text-gray-900 dark:text-gray-200">${name}</span>
         <span class="block text-xs text-gray-500 dark:text-gray-400 font-mono">${value}</span>
       </div>
-      <input type="radio" name="variable-radio" value="${id}" class="h-5 w-5 text-blue-600 dark:text-blue-400" ${boundId===id?'checked':''}/>
+      <input type="radio" name="variable-radio" value="${id}" class="h-5 w-5 text-blue-600 dark:text-blue-400" ${isSelected ? 'checked':''}/>
     </div>`;
 
     wrapper.querySelector('input')?.addEventListener('change',()=>{
@@ -219,7 +226,8 @@ function displayVariables(vars,boundId,searchTerm){
 function selectVariable(id){
   selectedVariableId = id;
   selectedVariableObject = allVariables.find(v => v.id===id);
-  displayVariables(filteredVariables, id);
+  displaySelectedText(selectedNodeText, selectedNodeName, null); // 🔹 แสดงชื่อ variable ที่เลือกทันที
+  displayVariables(filteredVariables, selectedVariableId);         // 🔹 highlight ตัวเลือก
   document.getElementById('bind-button')?.removeAttribute('disabled');
 }
 
