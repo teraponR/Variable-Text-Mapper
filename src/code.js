@@ -1,120 +1,100 @@
-// code.js - Main plugin logic
-figma.showUI(__html__, {
-  width: 644,
-  height: 600,
-  themeColors: true,
-  visible: true
-});
+// code.js - Figma Variable Mapper (fixed version)
+figma.showUI(__html__, { width: 644, height: 600, themeColors: true });
 
-// Load variables and send to UI
+// === Load Variables ===
 async function loadVariables() {
   try {
-    const localVariables = figma.variables.getLocalVariables();
+    const localVariables = await figma.variables.getLocalVariablesAsync();
+    const variablesData = [];
 
-    const variablesData = await Promise.all(localVariables.map(async (variable) => {
+    for (const v of localVariables) {
+      let collectionName = 'Unknown';
       try {
-        const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
-
-        let value = 'N/A';
-        if (variable.valuesByMode && Object.keys(variable.valuesByMode).length > 0) {
-          const firstModeId = Object.keys(variable.valuesByMode)[0];
-          const variableValue = variable.valuesByMode[firstModeId];
-
-          if (typeof variableValue === 'string') value = variableValue;
-          else if (typeof variableValue === 'number') value = variableValue.toString();
-          else if (variableValue && typeof variableValue === 'object' && 'r' in variableValue) {
-            const color = variableValue;
-            value = `rgb(${Math.round(color.r*255)},${Math.round(color.g*255)},${Math.round(color.b*255)})`;
-          } else if (variableValue && typeof variableValue === 'object' && 'id' in variableValue) {
-            const aliasVariable = await figma.variables.getVariableByIdAsync(variableValue.id);
-            value = aliasVariable ? `→ ${aliasVariable.name}` : 'Alias';
-          }
+        if (v.variableCollectionId) {
+          const collection = await figma.variables.getVariableCollectionByIdAsync(v.variableCollectionId);
+          collectionName = collection ? collection.name : 'Unknown';
         }
+      } catch (e) { collectionName = 'Unknown'; }
 
-        return {
-          id: variable.id,
-          name: variable.name,
-          value,
-          type: variable.resolvedType,
-          collection: collection ? collection.name : 'Unknown'
-        };
-      } catch (err) {
-        console.warn('Error processing variable:', variable.name, err);
-        return {
-          id: variable.id,
-          name: variable.name,
-          value: 'N/A',
-          type: variable.resolvedType,
-          collection: 'Unknown'
-        };
-      }
-    }));
+      let value = 'N/A';
+      try {
+        if (v.valuesByMode && Object.keys(v.valuesByMode).length > 0) {
+          const firstModeId = Object.keys(v.valuesByMode)[0];
+          const val = v.valuesByMode[firstModeId];
+          if (typeof val === 'string') value = val;
+          else if (typeof val === 'number') value = val.toString();
+          else if (val && typeof val === 'object' && 'r' in val)
+            value = `rgb(${Math.round(val.r*255)},${Math.round(val.g*255)},${Math.round(val.b*255)})`;
+        }
+      } catch(e){ value = 'N/A'; }
+
+      variablesData.push({
+        id: v.id,
+        name: v.name,
+        value,
+        type: v.resolvedType,
+        collection: collectionName,
+        variableObject: v // store object for binding
+      });
+    }
 
     figma.ui.postMessage({ type: 'variables-loaded', variables: variablesData });
-
   } catch (err) {
+    console.error('Failed to load variables', err);
     figma.ui.postMessage({ type: 'variables-loaded', variables: [] });
   }
 }
 
-// Check current selection and send to UI
-async function checkCurrentSelection() {
-  const textNodes = figma.currentPage.selection.filter(n => n.type === 'TEXT');
-  if (textNodes.length === 0) {
+// === Check Selected Text Node ===
+async function checkSelection() {
+  const selection = figma.currentPage.selection.filter(n => n.type === 'TEXT');
+  if (!selection.length) {
     figma.ui.postMessage({ type: 'no-text-selected' });
     return;
   }
 
-  const textNode = textNodes[0];
-  const selectedText = textNode.characters;
-  let boundVariableInfo = null;
+  const textNode = selection[0];
+  let boundVariable = null;
 
-  if (textNode.boundVariables && textNode.boundVariables.characters) {
-    const variableId = textNode.boundVariables.characters;
-    const variable = await figma.variables.getVariableByIdAsync(typeof variableId === 'string' ? variableId : variableId.id);
-    if (variable) {
-      const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
-      let currentValue = 'N/A';
-      if (variable.valuesByMode && Object.keys(variable.valuesByMode).length > 0) {
-        const firstModeId = Object.keys(variable.valuesByMode)[0];
-        const variableValue = variable.valuesByMode[firstModeId];
-
-        if (typeof variableValue === 'string') currentValue = variableValue;
-        else if (typeof variableValue === 'number') currentValue = variableValue.toString();
-        else if (variableValue && typeof variableValue === 'object' && 'r' in variableValue) {
-          const color = variableValue;
-          currentValue = `rgb(${Math.round(color.r*255)},${Math.round(color.g*255)},${Math.round(color.b*255)})`;
+  try {
+    if (textNode.boundVariables && textNode.boundVariables.characters) {
+      const variableId = textNode.boundVariables.characters;
+      const variable = await figma.variables.getVariableByIdAsync(variableId);
+      if (variable) {
+        let currentValue = 'N/A';
+        if (variable.valuesByMode && Object.keys(variable.valuesByMode).length > 0) {
+          const firstModeId = Object.keys(variable.valuesByMode)[0];
+          const val = variable.valuesByMode[firstModeId];
+          if (typeof val === 'string') currentValue = val;
+          else if (typeof val === 'number') currentValue = val.toString();
+          else if (val && 'r' in val)
+            currentValue = `rgb(${Math.round(val.r*255)},${Math.round(val.g*255)},${Math.round(val.b*255)})`;
         }
-      }
 
-      boundVariableInfo = {
-        id: variable.id,
-        name: variable.name,
-        value: currentValue,
-        collection: collection ? collection.name : 'Unknown'
-      };
+        const collection = variable.variableCollectionId ? await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId) : null;
+        boundVariable = { id: variable.id, name: variable.name, value: currentValue, collection: collection ? collection.name : 'Unknown' };
+      }
     }
-  }
+  } catch(e){}
 
   figma.ui.postMessage({
     type: 'text-selected',
-    text: selectedText,
+    text: textNode.characters,
     nodeName: textNode.name,
     nodeId: textNode.id,
-    boundVariable: boundVariableInfo
+    boundVariable
   });
 }
 
-// Load variables and check selection on startup
-loadVariables();
-checkCurrentSelection();
+// === Init ===
+(async () => {
+  await loadVariables();
+  await checkSelection();
+})();
 
-// Keep UI in sync when selection changes
-figma.on('selectionchange', () => {
-  checkCurrentSelection();
-});
+figma.on('selectionchange', async () => { await checkSelection(); });
 
-// Handle messages from UI
+// === Messages from UI ===
 figma.ui.onmessage = async (msg) => {
   if (msg.type === 'resize') {
     const { width, height } = msg.size;
@@ -122,46 +102,44 @@ figma.ui.onmessage = async (msg) => {
   }
 
   if (msg.type === 'bind-variable') {
-    const { variableId } = msg;
-    const variable = await figma.variables.getVariableByIdAsync(variableId);
-    if (!variable) {
-      figma.ui.postMessage({ type: 'error', message: 'Variable not found.' });
-      return;
-    }
-
-    const textNodes = figma.currentPage.selection.filter(n => n.type === 'TEXT');
-    if (textNodes.length === 0) {
-      figma.ui.postMessage({ type: 'error', message: 'Select at least one text node.' });
-      return;
-    }
-
-    for (const textNode of textNodes) {
-      await figma.loadFontAsync(textNode.fontName);
-      textNode.setBoundVariable('characters', variableId);
-    }
-
-    const collection = await figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId);
-    const collectionName = collection ? collection.name : 'Unknown';
-    let currentValue = 'N/A';
-    if (variable.valuesByMode && Object.keys(variable.valuesByMode).length > 0) {
-      const firstModeId = Object.keys(variable.valuesByMode)[0];
-      const variableValue = variable.valuesByMode[firstModeId];
-      if (typeof variableValue === 'string') currentValue = variableValue;
-      else if (typeof variableValue === 'number') currentValue = variableValue.toString();
-      else if (variableValue && typeof variableValue === 'object' && 'r' in variableValue) {
-        const color = variableValue;
-        currentValue = `rgb(${Math.round(color.r*255)},${Math.round(color.g*255)},${Math.round(color.b*255)})`;
+    try {
+      const variableObj = msg.variableObject; // use object, not id
+      if (!variableObj) { 
+        figma.ui.postMessage({ type: 'error', message: 'Variable object not found.' }); 
+        return; 
       }
+
+      const selection = figma.currentPage.selection.filter(n => n.type === 'TEXT');
+      if (!selection.length) { 
+        figma.ui.postMessage({ type: 'error', message: 'Select at least one text node.' }); 
+        return; 
+      }
+
+      for (const node of selection) {
+        try {
+          await figma.loadFontAsync(node.fontName);
+          node.setBoundVariable('characters', variableObj); // pass object
+        } catch(e) {
+          console.warn(`Failed to bind variable to node ${node.name}`, e);
+        }
+      }
+
+      const collection = variableObj.variableCollectionId ? await figma.variables.getVariableCollectionByIdAsync(variableObj.variableCollectionId) : null;
+      const firstValue = variableObj.valuesByMode ? variableObj.valuesByMode[Object.keys(variableObj.valuesByMode)[0]] : 'N/A';
+
+      figma.ui.postMessage({
+        type: 'variable-bound',
+        message: `Bound to ${selection.length} node(s).`,
+        variableDetails: {
+          name: `${collection ? collection.name : 'Unknown'}/${variableObj.name}`,
+          value: firstValue
+        }
+      });
+    } catch(e){
+      console.error('Failed to bind variable', e);
+      figma.ui.postMessage({ type: 'error', message: 'Failed to bind variable.' });
     }
-
-    figma.ui.postMessage({
-      type: 'variable-bound',
-      message: `Successfully bound variable to ${textNodes.length} text node(s).`,
-      variableDetails: { name: `${collectionName}/${variable.name}`, value: currentValue, type: variable.resolvedType }
-    });
   }
 
-  if (msg.type === 'cancel') {
-    figma.closePlugin();
-  }
+  if (msg.type === 'cancel') figma.closePlugin();
 };
