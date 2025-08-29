@@ -17,9 +17,9 @@ variable-text-mapper/
 │── package.json       # Dependencies and scripts
 │── tsconfig.json      # TypeScript configuration
 │── src/
-│    ├── code.ts       # Main plugin logic
+│    ├── code.js       # Main plugin logic
 │    ├── ui.html       # UI panel
-│    └── ui.ts         # UI script (postMessage)
+│    └── ui.js         # UI script (postMessage)
 │── dist/
 │    ├── code.js       # Build output
 │    └── ui.js         # Build output
