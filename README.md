@@ -1,4 +1,4 @@
-# Variable Text Mapper
+# Variable Mapper
 
 A Figma plugin for mapping and transforming variable text in selected text nodes.
 
